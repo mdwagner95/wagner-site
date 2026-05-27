@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberQuest — Learn to Hack Back</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050a0e;
+    --surface: #0a1520;
+    --surface2: #0f1f2e;
+    --border: #1a3a5c;
+    --cyan: #00e5ff;
+    --green: #00ff9d;
+    --red: #ff3c5a;
+    --yellow: #ffd600;
+    --orange: #ff6b35;
+    --purple: #bd00ff;
+    --text: #cde8ff;
+    --muted: #5a8ab0;
+    --glow-c: 0 0 20px rgba(0,229,255,0.4);
+    --glow-g: 0 0 20px rgba(0,255,157,0.4);
+    --glow-r: 0 0 20px rgba(255,60,90,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(0,229,255,0.05) 0%, transparent 100%);
+  }
+
+  .logo-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--green);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    animation: blink 2s step-end infinite;
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: var(--glow-c), 0 0 60px rgba(0,229,255,0.2);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+
+  h1 span { color: var(--green); }
+
+  .tagline {
+    font-size: 1.1rem;
+    color: var(--muted);
+    margin-top: 0.75rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+  }
+
+  .score-bar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--yellow);
+    text-shadow: 0 0 15px rgba(255,214,0,0.5);
+  }
+
+  .stat-lbl {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  /* ─── LEVEL MAP ─── */
+  .level-map {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .level-dot {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .level-dot.active { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-c); }
+  .level-dot.done { border-color: var(--green); color: var(--green); box-shadow: var(--glow-g); }
+  .level-dot.locked { color: var(--muted); opacity: 0.4; cursor: not-allowed; }
+  .level-dot:not(.locked):hover { transform: scale(1.15); }
+
+  .level-dot.done::after {
+    content: '✓';
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 16px; height: 16px;
+    background: var(--green);
+    border-radius: 50%;
+    font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #000;
+    font-weight: 900;
+  }
+
+  /* ─── MAIN GAME AREA ─── */
+  main {
+    position: relative;
+    z-index: 10;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .level-card {
+    display: none;
+    animation: fadeSlide 0.4s ease;
+  }
+
+  .level-card.active { display: block; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .level-badge {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    border: 2px solid var(--cyan);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: var(--glow-c);
+    background: rgba(0,229,255,0.05);
+  }
+
+  .level-meta h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--cyan);
+    margin-bottom: 0.3rem;
+  }
+
+  .level-meta p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    font-weight: 300;
+  }
+
+  .difficulty {
+    display: inline-flex;
+    gap: 3px;
+    margin-top: 0.4rem;
+  }
+
+  .pip {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+  .pip.on { background: var(--yellow); }
+
+  /* ─── GAME PANELS ─── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--cyan);
+  }
+
+  .panel.red::before { background: var(--red); }
+  .panel.green::before { background: var(--green); }
+  .panel.yellow::before { background: var(--yellow); }
+  .panel.purple::before { background: var(--purple); }
+
+  .panel-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  /* ─── PHISHING LEVEL ─── */
+  .email-sim {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+  }
+
+  .email-header-bar {
+    background: #0d1b2a;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .email-row { display: flex; gap: 0.5rem; }
+  .email-row strong { color: var(--muted); min-width: 50px; }
+  .email-row span { color: var(--text); }
+  .email-row .suspicious { color: var(--red); text-decoration: underline wavy var(--red); }
+
+  .email-body {
+    padding: 1rem;
+    line-height: 1.8;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+  }
+
+  .email-link {
+    color: var(--cyan);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .clue-list {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .clue-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+  }
+
+  .clue-item:hover { border-color: var(--yellow); }
+  .clue-item.correct { border-color: var(--green); background: rgba(0,255,157,0.06); }
+  .clue-item.wrong { border-color: var(--red); background: rgba(255,60,90,0.06); animation: shake 0.3s; }
+  .clue-item.missed { border-color: var(--yellow); background: rgba(255,214,0,0.06); }
+
+  .clue-icon { font-size: 1.1rem; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  /* ─── PASSWORD LEVEL ─── */
+  .password-input-wrap {
+    position: relative;
+    margin-bottom: 0.75rem;
+  }
+
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: var(--cyan); }
+
+  .strength-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+  }
+
+  .strength-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s, background 0.3s;
+    width: 0%;
+  }
+
+  .strength-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .requirements {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+
+  .req {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    transition: color 0.2s;
+  }
+  .req.met { color: var(--green); }
+  .req-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .req.met .req-dot { background: var(--green); }
+
+  /* ─── CAESAR CIPHER ─── */
+  .cipher-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--yellow);
+    letter-spacing: 0.2em;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    word-break: break-all;
+  }
+
+  .shift-control {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .shift-btn {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--cyan);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .shift-btn:hover { border-color: var(--cyan); }
+
+  .shift-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--cyan);
+    min-width: 40px;
+    text-align: center;
+  }
+
+  .decoded-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    color: var(--green);
+    letter-spacing: 0.15em;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+    min-height: 52px;
+    word-break: break-all;
+  }
+
+  /* ─── SPOT THE BUG ─── */
+  .code-block {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.8;
+    background: #030810;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    counter-reset: line;
+    margin-bottom: 1rem;
+  }
+
+  .code-line {
+    display: flex;
+    gap: 1rem;
+    cursor: pointer;
+    padding: 1px 0;
+    border-radius: 3px;
+    transition: background 0.15s;
+  }
+  .code-line:hover { background: rgba(0,229,255,0.06); }
+  .code-line.selected { background: rgba(255,214,0,0.1); border-left: 2px solid var(--yellow); }
+  .code-line.correct-line { background: rgba(255,60,90,0.15); border-left: 2px solid var(--red); }
+
+  .line-num {
+    color: var(--muted);
+    min-width: 24px;
+    user-select: none;
+    font-size: 0.7rem;
+  }
+
+  .code-text { color: #a8c8e8; }
+  .kw { color: #bd00ff; }
+  .str { color: #ffd600; }
+  .fn { color: #00e5ff; }
+  .cm { color: #3a6080; }
+  .var { color: #00ff9d; }
+  .val { color: #ff6b35; }
+
+  /* ─── HTTPS LEVEL ─── */
+  .url-bar {
+    background: #030810;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .url-bar:hover { border-color: var(--yellow); }
+  .url-bar.safe .lock-icon { color: var(--green); }
+  .url-bar.unsafe .lock-icon { color: var(--red); }
+  .url-bar.selected { border-color: var(--yellow); box-shadow: 0 0 10px rgba(255,214,0,0.2); }
+
+  .lock-icon { font-size: 1rem; }
+  .url-text { flex: 1; }
+  .url-scheme { font-weight: bold; }
+  .safe .url-scheme { color: var(--green); }
+  .unsafe .url-scheme { color: var(--red); }
+
+  .site-label {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.1em;
+  }
+  .safe .site-label { background: rgba(0,255,157,0.15); color: var(--green); }
+  .unsafe .site-label { background: rgba(255,60,90,0.15); color: var(--red); }
+
+  /* ─── SOCIAL ENGINEERING ─── */
+  .scenario-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .choice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 600px) { .choice-grid { grid-template-columns: 1fr; } }
+
+  .choice-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .choice-btn:hover:not(:disabled) { border-color: var(--cyan); color: var(--cyan); }
+  .choice-btn.correct { border-color: var(--green); background: rgba(0,255,157,0.08); color: var(--green); }
+  .choice-btn.wrong { border-color: var(--red); background: rgba(255,60,90,0.08); color: var(--red); animation: shake 0.3s; }
+  .choice-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    padding: 0.7rem 1.8rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--cyan);
+    color: #000;
+    box-shadow: var(--glow-c);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0,229,255,0.6); }
+
+  .btn-success {
+    background: var(--green);
+    color: #000;
+    box-shadow: var(--glow-g);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+  .btn-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  /* ─── FEEDBACK ─── */
+  .feedback {
+    display: none;
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-top: 0.75rem;
+    font-weight: 600;
+    border: 1px solid;
+    animation: fadeSlide 0.3s ease;
+  }
+
+  .feedback.success {
+    display: block;
+    background: rgba(0,255,157,0.07);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .feedback.error {
+    display: block;
+    background: rgba(255,60,90,0.07);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .feedback.info {
+    display: block;
+    background: rgba(0,229,255,0.07);
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+
+  /* ─── XP POPUP ─── */
+  .xp-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: var(--surface);
+    border: 2px solid var(--yellow);
+    border-radius: 12px;
+    padding: 2rem 3rem;
+    text-align: center;
+    z-index: 1000;
+    box-shadow: 0 0 60px rgba(255,214,0,0.3);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .xp-popup.show { transform: translate(-50%, -50%) scale(1); }
+
+  .xp-amount {
+    font-family: 'Orbitron', monospace;
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--yellow);
+    text-shadow: 0 0 30px rgba(255,214,0,0.6);
+  }
+
+  .xp-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    margin-top: 0.25rem;
+  }
+
+  .xp-msg {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    color: var(--cyan);
+    margin-top: 0.75rem;
+    font-weight: 700;
+  }
+
+  /* ─── COMPLETE SCREEN ─── */
+  .complete-screen {
+    display: none;
+    text-align: center;
+    padding: 3rem 1rem;
+    animation: fadeSlide 0.5s ease;
+  }
+
+  .complete-screen.show { display: block; }
+
+  .trophy {
+    font-size: 5rem;
+    display: block;
+    margin-bottom: 1rem;
+    animation: bounce 1s ease infinite alternate;
+  }
+
+  @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-12px); } }
+
+  .complete-screen h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    color: var(--yellow);
+    text-shadow: 0 0 30px rgba(255,214,0,0.4);
+    margin-bottom: 0.5rem;
+  }
+
+  .final-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: var(--glow-c);
+    margin: 1rem 0;
+  }
+
+  .cert-badge {
+    display: inline-block;
+    border: 2px solid var(--yellow);
+    border-radius: 12px;
+    padding: 1rem 2rem;
+    margin: 1.5rem 0;
+    color: var(--yellow);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+  }
+
+  /* ─── MISC ─── */
+  .tag {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    margin-right: 0.4rem;
+  }
+
+  .tag-phish { background: rgba(255,60,90,0.15); color: var(--red); }
+  .tag-crypto { background: rgba(189,0,255,0.15); color: var(--purple); }
+  .tag-web { background: rgba(0,229,255,0.15); color: var(--cyan); }
+  .tag-pass { background: rgba(0,255,157,0.15); color: var(--green); }
+  .tag-social { background: rgba(255,107,53,0.15); color: var(--orange); }
+  .tag-code { background: rgba(255,214,0,0.15); color: var(--yellow); }
+
+  .progress-wrap { background: var(--border); border-radius: 4px; height: 4px; margin-bottom: 1.5rem; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); border-radius: 4px; transition: width 0.5s ease; }
+
+  .hint-text {
+    background: rgba(0,229,255,0.05);
+    border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .hint-text span { color: var(--cyan); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-tag">// ANTHROPIC EDUCATION LABS — CLASSIFIED</div>
+  <h1>CYBER<span>QUEST</span></h1>
+  <p class="tagline">Train your brain. Outsmart the hackers.</p>
+  <div class="score-bar">
+    <div class="stat">
+      <div class="stat-val" id="totalScore">0</div>
+      <div class="stat-lbl">XP Earned</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="levelsDone">0/6</div>
+      <div class="stat-lbl">Levels Done</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="rankLabel">ROOKIE</div>
+      <div class="stat-lbl">Rank</div>
+    </div>
+  </div>
+</header>
+
+<nav class="level-map" id="levelMap"></nav>
+
+<main>
+  <div class="progress-wrap"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <!-- ═══════════════════════════════════════════════
+       LEVEL 1 — SPOT THE PHISHING EMAIL
+  ══════════════════════════════════════════════════ -->
+  <div class="level-card active" id="level-0">
+    <div class="card-header">
+      <div class="level-badge">01</div>
+      <div class="level-meta">
+        <h2>Spot the Phishing Email</h2>
+        <p>A suspicious email landed in your inbox. Find ALL the red flags hidden inside it. Click each clue you find!</p>
+        <div class="difficulty"><div class="pip on"></div><div class="pip"></div><div class="pip"></div></div>
+        <span class="tag tag-phish">Phishing</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// Incoming Message</div>
+      <div class="email-sim">
+        <div class="email-header-bar">
+          <div class="email-row"><strong>FROM:</strong> <span class="suspicious" id="clue-from">security@paypa1.com</span></div>
+          <div class="email-row"><strong>TO:</strong> <span>you@school.edu</span></div>
+          <div class="email-row"><strong>SUBJ:</strong> <span class="suspicious" id="clue-subj">⚠️ URGENT: Your account will be DELETED in 24 hours!!</span></div>
+        </div>
+        <div class="email-body">
+          Dear Valued Customer,<br><br>
+          We have detected <span id="clue-generic" style="cursor:pointer">unusual activity on your account</span>. To avoid suspension, you must verify your identity <strong>immediately</strong>.<br><br>
+          Please click the secure link below:<br><br>
+          <span class="email-link" id="clue-link">http://paypa1-secure-login.xyz/verify?id=48921</span><br><br>
+          If you do not verify within 24 hours, your account and all funds will be <strong>permanently deleted</strong>.<br><br>
+          <span id="clue-greet">Do Not Reply to this email.</span><br><br>
+          Regards,<br>
+          The PayPal Security Team
+        </div>
+      </div>
+    </div>
+
+    <div class="panel yellow">
+      <div class="panel-title">// Click Every Red Flag You Spot</div>
+      <div class="clue-list" id="clueList">
+        <div class="clue-item" data-clue="sender" onclick="checkClue(0,'sender')">
+          <span class="clue-icon">📧</span>
+          <span>The sender's email address looks off (paypa<b>1</b>.com, not paypal.com)</span>
+        </div>
+        <div class="clue-item" data-clue="urgency" onclick="checkClue(0,'urgency')">
+          <span class="clue-icon">⏰</span>
+          <span>Creates fake urgency — "24 hours or deleted!" to panic you</span>
+        </div>
+        <div class="clue-item" data-clue="link" onclick="checkClue(0,'link')">
+          <span class="clue-icon">🔗</span>
+          <span>The link goes to a random .xyz domain, not paypal.com</span>
+        </div>
+        <div class="clue-item" data-clue="greeting" onclick="checkClue(0,'greeting')">
+          <span class="clue-icon">👤</span>
+          <span>Generic greeting — real companies use your actual name</span>
+        </div>
+        <div class="clue-item" data-clue="noreply" onclick="checkClue(0,'noreply')">
+          <span class="clue-icon">🚫</span>
+          <span>"Do not reply" — scammers hide so you can't report them</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback-0"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitPhishing()">Submit Findings</button>
+      <button class="btn btn-ghost" onclick="resetLevel(0)">Reset</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       LEVEL 2 — PASSWORD STRENGTH
+  ══════════════════════════════════════════════════ -->
+  <div class="level-card" id="level-1">
+    <div class="card-header">
+      <div class="level-badge">02</div>
+      <div class="level-meta">
+        <h2>Password Fortress</h2>
+        <p>Build a password strong enough to stop hackers. Meet ALL the requirements to unlock the vault.</p>
+        <div class="difficulty"><div class="pip on"></div><div class="pip on"></div><div class="pip"></div></div>
+        <span class="tag tag-pass">Passwords</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// Password Examples — Ranked Worst to Best</div>
+      <div style="display:grid;gap:0.5rem;font-size:0.88rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <span style="color:var(--red);font-size:1rem;">✗</span>
+          <code style="color:var(--red);font-family:'Share Tech Mono',monospace;">password123</code>
+          <span style="color:var(--muted);">— Cracked in under 1 second</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <span style="color:var(--yellow);font-size:1rem;">~</span>
+          <code style="color:var(--yellow);font-family:'Share Tech Mono',monospace;">Tr0ub4dor!</code>
+          <span style="color:var(--muted);">— Better, but dictionary patterns exist</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <span style="color:var(--green);font-size:1rem;">✓</span>
+          <code style="color:var(--green);font-family:'Share Tech Mono',monospace;">K9#rL!mQ2$vXpZ</code>
+          <span style="color:var(--muted);">— Would take billions of years</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel green">
+      <div class="panel-title">// Create Your Password</div>
+      <div class="password-input-wrap">
+        <input type="text" id="passwordInput" placeholder="Type your password here..." oninput="checkPassword()" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="strength-bar">
+        <div class="strength-fill" id="strengthFill"></div>
+      </div>
+      <div class="strength-label">Strength: <span id="strengthText">—</span></div>
+
+      <div class="requirements">
+        <div class="req" id="req-len"><div class="req-dot"></div>At least 12 characters</div>
+        <div class="req" id="req-upper"><div class="req-dot"></div>Uppercase letter (A–Z)</div>
+        <div class="req" id="req-lower"><div class="req-dot"></div>Lowercase letter (a–z)</div>
+        <div class="req" id="req-num"><div class="req-dot"></div>A number (0–9)</div>
+        <div class="req" id="req-special"><div class="req-dot"></div>Special character (!@#$...)</div>
+        <div class="req" id="req-nodict"><div class="req-dot"></div>No common words</div>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback-1"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitPassword()">Lock It In</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('passwordInput').value='';checkPassword();">Clear</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       LEVEL 3 — CAESAR CIPHER
+  ══════════════════════════════════════════════════ -->
+  <div class="level-card" id="level-2">
+    <div class="card-header">
+      <div class="level-badge">03</div>
+      <div class="level-meta">
+        <h2>Crack the Caesar Cipher</h2>
+        <p>An intercepted message is encoded using a Caesar cipher — each letter is shifted by a secret number. Adjust the shift to decode the secret message!</p>
+        <div class="difficulty"><div class="pip on"></div><div class="pip on"></div><div class="pip"></div></div>
+        <span class="tag tag-crypto">Encryption</span>
+      </div>
+    </div>
+
+    <div class="panel purple">
+      <div class="panel-title">// Intercepted Transmission</div>
+      <div class="cipher-display" id="cipherText"></div>
+
+      <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+        <div>
+          <div style="font-size:0.75rem;color:var(--muted);font-family:'Share Tech Mono',monospace;margin-bottom:0.4rem;letter-spacing:0.15em;">SHIFT KEY</div>
+          <div class="shift-control">
+            <button class="shift-btn" onclick="adjustShift(-1)">−</button>
+            <div class="shift-val" id="shiftVal">0</div>
+            <button class="shift-btn" onclick="adjustShift(1)">+</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:0.75rem;color:var(--muted);font-family:'Share Tech Mono',monospace;margin-bottom:0.4rem;letter-spacing:0.15em;">DECODED MESSAGE</div>
+          <div class="decoded-display" id="decodedText">adjust the shift →</div>
+        </div>
+      </div>
+      <div class="hint-text">💡 HINT: Julius Caesar used a shift of <span>3</span>. But this interceptor got creative…</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// How Caesar Cipher Works</div>
+      <div style="font-size:0.88rem;line-height:1.7;color:var(--muted);">
+        Each letter is replaced by a letter a fixed number of steps ahead in the alphabet.<br>
+        Example with shift=3: <code style="color:var(--yellow);font-family:'Share Tech Mono',monospace;">A→D, B→E, C→F, Z→C</code><br>
+        To <em style="color:var(--cyan);">decode</em>, shift backwards by the same amount.
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback-2"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitCipher()">Submit Decoded Message</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       LEVEL 4 — SPOT THE UNSAFE URL
+  ══════════════════════════════════════════════════ -->
+  <div class="level-card" id="level-3">
+    <div class="card-header">
+      <div class="level-badge">04</div>
+      <div class="level-meta">
+        <h2>Safe vs Sketchy URLs</h2>
+        <p>Your school browser flagged several URLs. Identify which ones are DANGEROUS to click. Select all the unsafe URLs!</p>
+        <div class="difficulty"><div class="pip on"></div><div class="pip on"></div><div class="pip"></div></div>
+        <span class="tag tag-web">Web Safety</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// Click to Select — Mark ALL Unsafe URLs</div>
+      <div id="urlList"></div>
+    </div>
+
+    <div class="panel yellow">
+      <div class="panel-title">// Know the Clues</div>
+      <div style="display:grid;gap:0.4rem;font-size:0.85rem;line-height:1.6;">
+        <div>🔒 <strong style="color:var(--green);">HTTPS</strong> = encrypted. <strong style="color:var(--red);">HTTP</strong> (no S) = anyone can snoop on your data.</div>
+        <div>🔡 Look for letter swaps: <code style="color:var(--red);">amazon<b>n</b>.com</code>, <code style="color:var(--red);">go0gle.com</code></div>
+        <div>🌐 Check the domain — <code style="color:var(--red);">paypal.secure-login.xyz</code> is NOT PayPal</div>
+        <div>🗺️ Unknown country codes like <code style="color:var(--red)">.tk, .xyz, .ru</code> can be suspicious</div>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback-3"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitURLs()">Confirm Selection</button>
+      <button class="btn btn-ghost" onclick="resetURLs()">Reset</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       LEVEL 5 — SPOT THE BUG (SQL Injection)
+  ══════════════════════════════════════════════════ -->
+  <div class="level-card" id="level-4">
+    <div class="card-header">
+      <div class="level-badge">05</div>
+      <div class="level-meta">
+        <h2>Find the Vulnerability</h2>
+        <p>This login code has a critical security bug. Hackers can exploit it to bypass passwords entirely. Click the line that has the vulnerability!</p>
+        <div class="difficulty"><div class="pip on"></div><div class="pip on"></div><div class="pip on"></div></div>
+        <span class="tag tag-code">Code Review</span>
+      </div>
+    </div>
+
+    <div class="panel red">
+      <div class="panel-title">// login.py — Code Review Required</div>
+      <div class="code-block" id="codeBlock">
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="1"><span class="line-num">1</span><span class="code-text"><span class="kw">def</span> <span class="fn">login</span>(username, password):</span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="2"><span class="line-num">2</span><span class="code-text">    <span class="cm"># Connect to the database</span></span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="3"><span class="line-num">3</span><span class="code-text">    <span class="var">db</span> = <span class="fn">connect</span>(<span class="str">"school.db"</span>)</span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="4"><span class="line-num">4</span><span class="code-text">    <span class="var">cursor</span> = <span class="var">db</span>.<span class="fn">cursor</span>()</span></div>
+        <div class="code-line vuln" onclick="selectCodeLine(this, true)" data-id="5"><span class="line-num">5</span><span class="code-text">    <span class="var">query</span> = <span class="str">"SELECT * FROM users WHERE name='"</span> + username + <span class="str">"' AND pass='"</span> + password + <span class="str">"'"</span></span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="6"><span class="line-num">6</span><span class="code-text">    <span class="var">cursor</span>.<span class="fn">execute</span>(<span class="var">query</span>)</span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="7"><span class="line-num">7</span><span class="code-text">    <span class="var">result</span> = <span class="var">cursor</span>.<span class="fn">fetchone</span>()</span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="8"><span class="line-num">8</span><span class="code-text">    <span class="kw">if</span> <span class="var">result</span>:</span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="9"><span class="line-num">9</span><span class="code-text">        <span class="kw">return</span> <span class="str">"Login successful!"</span></span></div>
+        <div class="code-line" onclick="selectCodeLine(this, false)" data-id="10"><span class="line-num">10</span><span class="code-text">    <span class="kw">return</span> <span class="str">"Access denied."</span></span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// The Attack — SQL Injection</div>
+      <div style="font-size:0.88rem;line-height:1.7;color:var(--muted);">
+        If a hacker types <code style="color:var(--red);font-family:'Share Tech Mono',monospace;">' OR '1'='1</code> as the username, the query becomes:<br>
+        <code style="color:var(--orange);font-family:'Share Tech Mono',monospace;font-size:0.78rem;">SELECT * FROM users WHERE name='' OR '1'='1' AND pass='...'</code><br>
+        Since <code style="color:var(--orange);">'1'='1'</code> is always true, they get in <em style="color:var(--red);">without knowing any password!</em>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback-4"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="hintCode()">Hint</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       LEVEL 6 — SOCIAL ENGINEERING
+  ══════════════════════════════════════════════════ -->
+  <div class="level-card" id="level-5">
+    <div class="card-header">
+      <div class="level-badge">06</div>
+      <div class="level-meta">
+        <h2>Social Engineering Scenarios</h2>
+        <p>Hackers don't always need code — they trick PEOPLE. Choose the safest response to each scenario.</p>
+        <div class="difficulty"><div class="pip on"></div><div class="pip on"></div><div class="pip on"></div></div>
+        <span class="tag tag-social">Social Eng.</span>
+      </div>
+    </div>
+
+    <div id="scenarioContainer"></div>
+    <div class="feedback" id="feedback-5"></div>
+  </div>
+
+  <!-- Complete Screen -->
+  <div class="complete-screen" id="completeScreen">
+    <span class="trophy">🏆</span>
+    <h2>MISSION COMPLETE</h2>
+    <p style="color:var(--muted);margin-bottom:0.5rem;">You've completed all 6 CyberQuest challenges!</p>
+    <div class="final-score" id="finalScore">0 XP</div>
+    <div class="cert-badge">
+      ⬡ CERTIFIED CYBER DEFENDER ⬡<br>
+      <span style="font-size:0.7rem;opacity:0.7;">CyberQuest Academy — Class of 2025</span>
+    </div>
+    <p style="color:var(--muted);max-width:500px;margin:0 auto 1.5rem;line-height:1.6;font-size:0.9rem;">
+      You can now spot phishing emails, build strong passwords, decode encrypted messages,
+      identify unsafe URLs, review code for vulnerabilities, and resist social engineering attacks. 
+    </p>
+    <button class="btn btn-primary" onclick="playAgain()">Play Again</button>
+  </div>
+
+</main>
+
+<!-- XP Popup -->
+<div class="xp-popup" id="xpPopup">
+  <div class="xp-amount" id="xpAmount">+200</div>
+  <div class="xp-label">XP Earned</div>
+  <div class="xp-msg" id="xpMsg">Level Complete!</div>
+</div>
+
+<script>
+// ─── STATE ───
+let state = {
+  score: 0,
+  levelsDone: 0,
+  completedLevels: new Set(),
+  currentLevel: 0
+};
+
+const XP_VALUES = [150, 200, 200, 175, 250, 225];
+const RANKS = [
+  [0,'ROOKIE'], [300,'TRAINEE'], [600,'ANALYST'], [900,'DEFENDER'], [1100,'EXPERT'], [1200,'ELITE HACKER']
+];
+
+// ─── LEVEL MAP ───
+function buildLevelMap() {
+  const labels = ['📧 Phishing','🔑 Passwords','🔐 Cipher','🌐 URLs','💻 Code Bug','🧠 Social Eng'];
+  const map = document.getElementById('levelMap');
+  map.innerHTML = '';
+  labels.forEach((lbl, i) => {
+    const d = document.createElement('div');
+    d.className = 'level-dot' + (i === state.currentLevel ? ' active' : '') +
+                  (state.completedLevels.has(i) ? ' done' : '') +
+                  (i > state.currentLevel && !state.completedLevels.has(i) ? ' locked' : '');
+    d.innerHTML = `<span style="font-size:1.1rem;">${lbl.split(' ')[0]}</span>`;
+    d.title = lbl;
+    d.onclick = () => {
+      if (!d.classList.contains('locked')) goToLevel(i);
+    };
+    map.appendChild(d);
+  });
+}
+
+function goToLevel(i) {
+  document.querySelectorAll('.level-card').forEach(c => c.classList.remove('active'));
+  const card = document.getElementById(`level-${i}`);
+  if (card) { card.classList.add('active'); card.scrollIntoView({behavior:'smooth',block:'start'}); }
+  state.currentLevel = i;
+  buildLevelMap();
+}
+
+// ─── SCORE ───
+function updateScore(add, levelIdx, msg) {
+  state.score += add;
+  state.levelsDone = state.completedLevels.size;
+  document.getElementById('totalScore').textContent = state.score;
+  document.getElementById('levelsDone').textContent = `${state.levelsDone}/6`;
+  const rank = RANKS.filter(r => state.score >= r[0]).pop()[1];
+  document.getElementById('rankLabel').textContent = rank;
+  document.getElementById('progressFill').style.width = `${(state.levelsDone/6)*100}%`;
+  showXP(add, msg);
+}
+
+function showXP(amount, msg) {
+  const popup = document.getElementById('xpPopup');
+  document.getElementById('xpAmount').textContent = `+${amount}`;
+  document.getElementById('xpMsg').textContent = msg;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 2000);
+}
+
+function showFeedback(id, type, msg) {
+  const el = document.getElementById(`feedback-${id}`);
+  el.className = `feedback ${type}`;
+  el.innerHTML = msg;
+}
+
+// ─── LEVEL COMPLETE ───
+function completeLevel(idx, xp, msg) {
+  if (state.completedLevels.has(idx)) return;
+  state.completedLevels.add(idx);
+  updateScore(xp, idx, msg);
+  buildLevelMap();
+  setTimeout(() => {
+    if (state.completedLevels.size === 6) {
+      document.querySelectorAll('.level-card').forEach(c => c.classList.remove('active'));
+      document.getElementById('completeScreen').classList.add('show');
+      document.getElementById('finalScore').textContent = `${state.score} XP`;
+      document.getElementById('progressFill').style.width = '100%';
+    } else {
+      const next = idx + 1;
+      if (next < 6) goToLevel(next);
+    }
+  }, 2200);
+}
+
+// ══════════════════════════════
+// LEVEL 1 — PHISHING
+// ══════════════════════════════
+const requiredClues = ['sender','urgency','link','greeting','noreply'];
+let foundClues = new Set();
+
+function checkClue(level, clueId) {
+  if (foundClues.has(clueId)) return;
+  foundClues.add(clueId);
+  const item = document.querySelector(`[data-clue="${clueId}"]`);
+  if (item) item.classList.add('correct');
+  showFeedback(0, 'info', `🎯 Found! (${foundClues.size}/${requiredClues.length} red flags spotted)`);
+}
+
+function submitPhishing() {
+  const missed = requiredClues.filter(c => !foundClues.has(c));
+  if (missed.length > 0) {
+    document.querySelectorAll('.clue-item').forEach(i => {
+      if (!foundClues.has(i.dataset.clue)) i.classList.add('missed');
+    });
+    showFeedback(0, 'error', `⚠️ You missed ${missed.length} red flag(s). They've been highlighted. Review them carefully!`);
+    return;
+  }
+  showFeedback(0, 'success', '✅ Perfect! You found ALL 5 phishing red flags! Always check sender addresses, urgency tactics, and suspicious links before clicking anything.');
+  completeLevel(0, XP_VALUES[0], 'Phishing Expert!');
+}
+
+function resetLevel(idx) {
+  foundClues.clear();
+  document.querySelectorAll('.clue-item').forEach(i => i.classList.remove('correct','wrong','missed'));
+  showFeedback(idx, 'info', '');
+  document.getElementById(`feedback-${idx}`).className = 'feedback';
+}
+
+// ══════════════════════════════
+// LEVEL 2 — PASSWORDS
+// ══════════════════════════════
+const badWords = ['password','123456','qwerty','admin','login','welcome','letmein','iloveyou','sunshine','monkey','dragon','master','abc','hello','test'];
+
+function checkPassword() {
+  const pw = document.getElementById('passwordInput').value;
+  const checks = {
+    len: pw.length >= 12,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    num: /[0-9]/.test(pw),
+    special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pw),
+    nodict: !badWords.some(w => pw.toLowerCase().includes(w))
+  };
+  Object.entries(checks).forEach(([k,v]) => {
+    const el = document.getElementById(`req-${k}`);
+    if (el) el.className = 'req' + (v ? ' met' : '');
+  });
+  const score = Object.values(checks).filter(Boolean).length;
+  const fill = document.getElementById('strengthFill');
+  const labels = ['','Terrible','Weak','Fair','Good','Strong','Fortress'];
+  const colors = ['','#ff3c5a','#ff6b35','#ffd600','#00e5ff','#00ff9d','#00ff9d'];
+  fill.style.width = `${(score/6)*100}%`;
+  fill.style.background = colors[score] || colors[1];
+  document.getElementById('strengthText').textContent = labels[score] || '—';
+  document.getElementById('strengthText').style.color = colors[score] || 'var(--muted)';
+  return checks;
+}
+
+function submitPassword() {
+  const checks = checkPassword();
+  const allMet = Object.values(checks).every(Boolean);
+  if (!allMet) {
+    showFeedback(1, 'error', '🔓 Password not strong enough yet! Make sure ALL requirements are met (green dots).');
+    return;
+  }
+  showFeedback(1, 'success', '🔒 Password accepted! Great job. Strong passwords use length, mixed cases, numbers, and symbols — and avoid dictionary words. Consider using a password manager!');
+  completeLevel(1, XP_VALUES[1], 'Password Master!');
+}
+
+// ══════════════════════════════
+// LEVEL 3 — CAESAR CIPHER
+// ══════════════════════════════
+const CIPHER_MESSAGE = "TY DHNULYZ JSHZZ PZ AOL ILZA JSHZZ";
+const CORRECT_SHIFT = 19; // decode shift (shift back by 7, or forward by 19)
+const DECODED = "MR WAGNERS CLASS IS THE BEST CLASS";
+
+let currentShift = 0;
+
+function caesar(text, shift) {
+  return text.split('').map(c => {
+    if (c >= 'A' && c <= 'Z') {
+      return String.fromCharCode(((c.charCodeAt(0) - 65 + shift + 26) % 26) + 65);
+    }
+    return c;
+  }).join('');
+}
+
+function adjustShift(d) {
+  currentShift = ((currentShift + d + 26) % 26);
+  document.getElementById('shiftVal').textContent = currentShift;
+  const decoded = caesar(CIPHER_MESSAGE, currentShift);
+  document.getElementById('decodedText').textContent = decoded;
+  if (currentShift === CORRECT_SHIFT) {
+    document.getElementById('decodedText').style.color = 'var(--green)';
+  } else {
+    document.getElementById('decodedText').style.color = 'var(--green)';
+  }
+}
+
+function submitCipher() {
+  const decoded = caesar(CIPHER_MESSAGE, currentShift);
+  const correct = decoded === "JOOD THERE IS THE SECRET: CHECK THEIR SOURCE CODE";
+  // Accept shift=22 as correct answer
+  if (currentShift === CORRECT_SHIFT || decoded.includes("THERE IS THE SECRET")) {
+    showFeedback(2, 'success', `✅ Decoded! The Caesar cipher used a shift of 4 (you shifted back by 4). The message reads: "${decoded}". Encryption scrambles messages so only someone with the key can read them!`);
+    completeLevel(2, XP_VALUES[2], 'Cryptographer!');
+  } else {
+    showFeedback(2, 'error', `🔑 Not quite. The decoded text should make readable English. Keep adjusting the shift value. Hint: think single digits!`);
+  }
+}
+
+// Init cipher display
+document.getElementById('cipherText').textContent = CIPHER_MESSAGE;
+
+// ══════════════════════════════
+// LEVEL 4 — URLs
+// ══════════════════════════════
+const urlData = [
+  { url: 'https://www.google.com/search?q=homework', safe: true, label: 'Google Search' },
+  { url: 'http://bankofamerica-login.net/secure', safe: false, label: 'FAKE BANK' },
+  { url: 'https://wikipedia.org/wiki/Cybersecurity', safe: true, label: 'Wikipedia' },
+  { url: 'http://free-robux-now.xyz/claim?user=you', safe: false, label: 'SCAM SITE' },
+  { url: 'https://drive.google.com/file/abc123', safe: true, label: 'Google Drive' },
+  { url: 'http://paypa1.secure-verify.tk/login', safe: false, label: 'PHISHING' },
+  { url: 'https://khanacademy.org/math', safe: true, label: 'Khan Academy' },
+  { url: 'http://update-your-device.ru/flash.exe', safe: false, label: 'MALWARE' },
+];
+
+let selectedURLs = new Set();
+
+function buildURLList() {
+  const list = document.getElementById('urlList');
+  list.innerHTML = '';
+  urlData.forEach((u, i) => {
+    const bar = document.createElement('div');
+    bar.className = `url-bar ${u.safe ? 'safe' : 'unsafe'}`;
+    bar.id = `url-${i}`;
+    bar.innerHTML = `
+      <span class="lock-icon">${u.safe ? '🔒' : '⚠️'}</span>
+      <span class="url-text"><span class="url-scheme">${u.url.split('://')[0]}://</span>${u.url.split('://')[1]}</span>
+      <span class="site-label">${u.label}</span>
+    `;
+    // Remove visual safe/unsafe hint for the challenge
+    bar.className = 'url-bar';
+    bar.innerHTML = `
+      <span class="lock-icon" style="color:var(--muted)">🔗</span>
+      <span class="url-text" style="color:var(--text)">${u.url}</span>
+    `;
+    bar.onclick = () => {
+      if (selectedURLs.has(i)) { selectedURLs.delete(i); bar.classList.remove('selected'); }
+      else { selectedURLs.add(i); bar.classList.add('selected'); }
+    };
+    list.appendChild(bar);
+  });
+}
+
+function submitURLs() {
+  const unsafeIndices = urlData.map((u,i) => u.safe ? -1 : i).filter(i => i >= 0);
+  const correct = unsafeIndices.every(i => selectedURLs.has(i));
+  const noFalsePositives = [...selectedURLs].every(i => !urlData[i].safe);
+
+  // Reveal labels
+  urlData.forEach((u,i) => {
+    const bar = document.getElementById(`url-${i}`);
+    if (!bar) return;
+    if (!u.safe) bar.style.borderColor = 'var(--red)';
+    else bar.style.borderColor = 'var(--green)';
+  });
+
+  if (correct && noFalsePositives) {
+    showFeedback(3, 'success', '✅ Correct! You identified all 4 dangerous URLs. Key tells: missing HTTPS, suspicious domains, typosquatting (paypa1), unknown TLDs (.xyz, .tk, .ru), and too-good-to-be-true offers.');
+    completeLevel(3, XP_VALUES[3], 'URL Detective!');
+  } else {
+    const missed = unsafeIndices.filter(i => !selectedURLs.has(i)).length;
+    const wrong = [...selectedURLs].filter(i => urlData[i].safe).length;
+    showFeedback(3, 'error', `⚠️ ${missed > 0 ? `Missed ${missed} unsafe URL(s). ` : ''}${wrong > 0 ? `Flagged ${wrong} safe URL(s) incorrectly.` : ''} Borders now show correct answers!`);
+  }
+}
+
+function resetURLs() {
+  selectedURLs.clear();
+  buildURLList();
+  document.getElementById('feedback-3').className = 'feedback';
+}
+
+buildURLList();
+
+// ══════════════════════════════
+// LEVEL 5 — CODE BUG
+// ══════════════════════════════
+function selectCodeLine(el, isVuln) {
+  document.querySelectorAll('.code-line').forEach(l => l.classList.remove('selected','correct-line'));
+  el.classList.add('selected');
+  if (isVuln) {
+    el.classList.add('correct-line');
+    showFeedback(4, 'success', '🎯 Correct! Line 5 directly concatenates user input into the SQL query — this is classic SQL Injection. The fix: use PARAMETERIZED QUERIES.\n\nSafe version: cursor.execute("SELECT * FROM users WHERE name=? AND pass=?", (username, password))');
+    completeLevel(4, XP_VALUES[4], 'Bug Hunter!');
+  } else {
+    showFeedback(4, 'error', '❌ That line looks okay. The vulnerability is in how the SQL query is built. Look for where user input is directly inserted into the query string.');
+  }
+}
+
+function hintCode() {
+  showFeedback(4, 'info', '💡 Hint: Find the line where user-provided text (username and password) is directly concatenated (+) into a SQL query string. This lets attackers inject their own SQL commands!');
+}
+
+// ══════════════════════════════
+// LEVEL 6 — SOCIAL ENGINEERING
+// ══════════════════════════════
+const scenarios = [
+  {
+    q: "A stranger calls saying they're from your school's IT department and needs your Wi-Fi password to 'fix a network issue.' What do you do?",
+    choices: [
+      { text: "Give them the password since they seem official.", correct: false },
+      { text: "Hang up, look up the real IT number, and call them back to verify.", correct: true },
+      { text: "Ask for their name and give the password.", correct: false },
+      { text: "Give a fake password to test them.", correct: false },
+    ],
+    explain: "✅ Always verify by calling back on a known, official number. Attackers use authority + urgency to trick victims. Legit IT staff never need your password."
+  },
+  {
+    q: "You get a DM on Instagram: 'Congrats! You've won a $500 gift card. Click here to claim: bit.ly/claim-gift-now.' What do you do?",
+    choices: [
+      { text: "Click the link — sounds exciting!", correct: false },
+      { text: "Ask your friends if they got it too.", correct: false },
+      { text: "Ignore and report it as spam/phishing.", correct: true },
+      { text: "Reply asking for more details.", correct: false },
+    ],
+    explain: "✅ If you didn't enter a contest, you didn't win. Shortened URLs hide destinations. When in doubt, don't click — report it instead!"
+  },
+  {
+    q: "Your friend's account sends you a message: 'Hey I'm stuck abroad and lost my wallet. Can you send me $100 via Venmo?' What do you do?",
+    choices: [
+      { text: "Send money immediately — it's your friend!", correct: false },
+      { text: "Call or video chat your friend directly to verify.", correct: true },
+      { text: "Ask for their Venmo username and send it.", correct: false },
+      { text: "Send $50 just to be safe.", correct: false },
+    ],
+    explain: "✅ Accounts get hacked! Always verify urgent money requests through a separate communication channel (phone call, video chat) before sending anything."
+  }
+];
+
+let scenarioAnswers = [];
+
+function buildScenarios() {
+  const container = document.getElementById('scenarioContainer');
+  container.innerHTML = '';
+  scenarios.forEach((s, si) => {
+    const div = document.createElement('div');
+    div.className = 'panel';
+    div.innerHTML = `
+      <div class="panel-title">// Scenario ${si+1} of ${scenarios.length}</div>
+      <div class="scenario-box">${s.q}</div>
+      <div class="choice-grid" id="choices-${si}">
+        ${s.choices.map((c,ci) => `
+          <button class="choice-btn" onclick="answerScenario(${si},${ci})" id="choice-${si}-${ci}">${c.text}</button>
+        `).join('')}
+      </div>
+      <div class="feedback" id="sfeedback-${si}"></div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function answerScenario(si, ci) {
+  const s = scenarios[si];
+  const choiceEl = document.getElementById(`choice-${si}-${ci}`);
+  document.querySelectorAll(`#choices-${si} .choice-btn`).forEach(b => b.disabled = true);
+  if (s.choices[ci].correct) {
+    choiceEl.classList.add('correct');
+    scenarioAnswers[si] = true;
+  } else {
+    choiceEl.classList.add('wrong');
+    scenarioAnswers[si] = false;
+    // Highlight correct answer
+    s.choices.forEach((c,i) => { if(c.correct) document.getElementById(`choice-${si}-${i}`).classList.add('correct'); });
+  }
+  const fb = document.getElementById(`sfeedback-${si}`);
+  fb.className = `feedback ${s.choices[ci].correct ? 'success' : 'error'}`;
+  fb.textContent = s.explain;
+
+  // Check if all answered
+  if (scenarioAnswers.filter(v=>v!==undefined).length === scenarios.length) {
+    const allCorrect = scenarioAnswers.every(Boolean);
+    const correctCount = scenarioAnswers.filter(Boolean).length;
+    showFeedback(5, allCorrect ? 'success' : 'info',
+      allCorrect
+        ? `🏅 Perfect! ${correctCount}/${scenarios.length} correct. You're immune to social engineering attacks!`
+        : `✅ Finished! ${correctCount}/${scenarios.length} correct. Social engineering exploits trust and urgency — always verify before acting.`
+    );
+    completeLevel(5, XP_VALUES[5], 'Social Engineer Proof!');
+  }
+}
+
+buildScenarios();
+
+// ─── PLAY AGAIN ───
+function playAgain() {
+  state = { score:0, levelsDone:0, completedLevels: new Set(), currentLevel:0 };
+  document.getElementById('totalScore').textContent = '0';
+  document.getElementById('levelsDone').textContent = '0/6';
+  document.getElementById('rankLabel').textContent = 'ROOKIE';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('completeScreen').classList.remove('show');
+  foundClues.clear();
+  selectedURLs.clear();
+  scenarioAnswers = [];
+  currentShift = 0;
+  document.getElementById('shiftVal').textContent = '0';
+  document.getElementById('decodedText').textContent = 'adjust the shift →';
+  document.getElementById('cipherText').textContent = CIPHER_MESSAGE;
+  document.getElementById('passwordInput').value = '';
+  checkPassword();
+  resetLevel(0);
+  buildURLList();
+  buildScenarios();
+  document.querySelectorAll('.feedback').forEach(f => f.className = 'feedback');
+  document.querySelectorAll('.code-line').forEach(l => l.classList.remove('selected','correct-line'));
+  buildLevelMap();
+  goToLevel(0);
+}
+
+// ─── INIT ───
+buildLevelMap();
+checkPassword();
+</script>
+</body>
+</html>

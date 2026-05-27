@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tile-Based Distributive Trainer (Demo)</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding:20px; }
+    #factors, #grid { display: inline-block; vertical-align: top; margin:10px; }
+    .tile {
+      width: 50px; height: 50px;
+      line-height: 50px;
+      border: 1px solid #333;
+      display: inline-block;
+      text-align: center;
+      cursor: grab;
+      background: #def;
+      margin: 2px;
+      user-select: none;
+    }
+    .slot {
+      width: 50px; height: 50px;
+      border: 1px dashed #999;
+      display: inline-block;
+      vertical-align: top;
+      margin: 2px;
+    }
+    #grid { width: 120px; height: 120px; }
+    #final { margin-top:20px; }
+  </style>
+</head>
+<body>
+
+<h2>Distributive Tile Demo — (x + 3)(x + 4)</h2>
+
+<div id="factors">
+  <div>Left factor:</div>
+  <div id="leftTiles">
+    <div class="tile" draggable="true" data-term="x">x</div>
+    <div class="tile" draggable="true" data-term="3">3</div>
+  </div>
+
+  <div style="margin-top:20px">Top factor:</div>
+  <div id="topTiles">
+    <div class="tile" draggable="true" data-term="x">x</div>
+    <div class of="tile" draggable="true" data-term="4">4</div>
+  </div>
+</div>
+
+<div id="grid">
+  <!-- 2×2 slots -->
+  <div class="slot" data-row="0" data-col="0"></div>
+  <div class="slot" data-row="0" data-col="1"></div><br>
+  <div class="slot" data-row="1" data-col="0"></div>
+  <div class="slot" data-row="1" data-col="1"></div>
+</div>
+
+<div id="final">
+  <input type="text" id="finalExp" placeholder="Enter expanded form, e.g. x^2 + 7x + 12" style="width:250px; font-size:16px;">
+  <button id="check">Check</button>
+  <span id="result"></span>
+</div>
+
+<script>
+  let dragTerm = null;
+
+  document.querySelectorAll('.tile').forEach(tile=>{
+    tile.addEventListener('dragstart', e=>{
+      dragTerm = tile.getAttribute('data-term');
+    });
+  });
+
+  document.querySelectorAll('.slot').forEach(slot=>{
+    slot.addEventListener('dragover', e=>{ e.preventDefault(); });
+    slot.addEventListener('drop', e=>{
+      e.preventDefault();
+      if(dragTerm){
+        slot.textContent = dragTerm;
+        slot.setAttribute('data-term', dragTerm);
+      }
+    });
+  });
+
+  document.getElementById('check').onclick = ()=>{
+    const slots = document.querySelectorAll('.slot');
+    const products = Array.from(slots).map(s => s.getAttribute('data-term') || "");
+
+    // naive build: just join them with '+' for demo
+    const combined = products.join(" + ");
+    const final = document.getElementById('finalExp').value.replace(/\s+/g,'');
+    if(final === "x^2+7x+12") {
+      document.getElementById('result').textContent = "✅ Correct!";
+    } else {
+      document.getElementById('result').textContent = "❌ Try again.";
+    }
+  };
+</script>
+
+</body>
+</html>

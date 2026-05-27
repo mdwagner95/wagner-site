@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Router Network — Internet Simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", Consolas, Arial, sans-serif;
+  background: #0f1419;
+  color: #c8d6e5;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  background: #1a2332;
+  border-bottom: 1px solid #2d3a4d;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#topbar h1 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #7ec8e3;
+}
+.stat {
+  font-size: 13px;
+  padding: 4px 10px;
+  background: #243044;
+  border-radius: 6px;
+}
+.stat strong { color: #5dffb0; }
+.stat.good strong, #networkStats .good { color: #5dffb0; }
+.stat.warn, #networkStats .warn { background: rgba(180, 90, 40, 0.2); }
+.stat.warn strong, #networkStats .warn { color: #ffb347; }
+.stat.bad, #networkStats .bad { background: rgba(160, 45, 45, 0.28); border: 1px solid rgba(255, 90, 90, 0.35); }
+.stat.bad strong, #networkStats .bad { color: #ff6b6b; }
+#networkStats .stat-line { display: block; margin-bottom: 4px; padding: 3px 6px; border-radius: 4px; }
+#networkStats .stat-line.bad { background: rgba(160, 45, 45, 0.22); }
+#networkStats .stat-line.warn { background: rgba(140, 90, 30, 0.18); }
+#networkStats .stat-line.good { background: rgba(40, 120, 80, 0.12); }
+button.tool {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid #3d4f66;
+  border-radius: 6px;
+  background: #243044;
+  color: #c8d6e5;
+  cursor: pointer;
+}
+button.tool.active {
+  background: #1a6b8a;
+  color: #fff;
+  border-color: #1a6b8a;
+}
+button.tool:hover:not(.active) { background: #2d3f55; }
+#mainRow {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+#gameWrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+#logPanel {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: #1a2332;
+  border-left: 1px solid #2d3a4d;
+}
+#logPanel h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #7ec8e3;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid #2d3a4d;
+}
+#networkStats {
+  padding: 8px 14px 10px;
+  font-size: 11px;
+  line-height: 1.55;
+  font-family: Consolas, monospace;
+  border-bottom: 1px solid #2d3a4d;
+  color: #a8c0d8;
+}
+#networkStats strong { color: #5dffb0; }
+#routeLog {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.log-entry {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: #243044;
+  border-radius: 5px;
+  border-left: 3px solid #5dffb0;
+}
+.log-entry.stuck {
+  border-left-color: #ff6b6b;
+}
+.log-entry .route { color: #a8c0d8; }
+.log-entry .dist { color: #5dffb0; font-weight: bold; }
+.log-entry.stuck .dist { color: #ff6b6b; }
+#legend {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  bottom: auto;
+  max-width: min(420px, calc(100% - 24px));
+  max-height: 140px;
+  overflow-y: auto;
+  background: rgba(26,35,50,0.94);
+  border: 1px solid #2d3a4d;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  pointer-events: none;
+  font-family: Consolas, monospace;
+}
+#legend .entry {
+  display: inline-block;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+#legend .swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+#toast {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  max-width: min(320px, calc(100% - 24px));
+  background: rgba(10,20,35,0.92);
+  color: #7ec8e3;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: Consolas, monospace;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s;
+  border: 1px solid #2d5a6e;
+  z-index: 2;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>Internet Router Simulator</h1>
+  <div class="stat" id="statScore">Score: <strong id="scoreVal">100%</strong></div>
+  <div class="stat" id="statAvg">Avg Distance (last 20): <strong id="avgDistVal">—</strong></div>
+  <div class="stat" id="statFailed">Failed (last 20): <strong id="failedWindowVal">0</strong></div>
+  <div class="stat" id="statCables">Total Cables: <strong id="lineVal">0</strong></div>
+  <div class="stat" id="statMaxPath">Max Distance: <strong id="maxDistVal">—</strong> cables</div>
+  <div class="stat" id="statFault">Fault tolerance: <strong id="faultTolVal">—</strong></div>
+  <div class="stat" id="statConnected">Connected: <strong id="connectedVal">no</strong></div>
+  <div class="stat" id="statInflight">In flight: <strong id="waitingVal">0</strong></div>
+  <div class="stat" id="statDelivered">Delivered: <strong id="deliveredVal">0</strong></div>
+  <button class="tool active" id="drawBtn" type="button">Add link</button>
+  <button class="tool" id="eraseBtn" type="button">Remove link</button>
+  <button class="tool" id="resetBtn" type="button">New topology</button>
+</div>
+
+<div id="mainRow">
+  <div id="gameWrap">
+    <canvas id="canvas"></canvas>
+    <div id="toast"></div>
+    <div id="legend"></div>
+  </div>
+  <aside id="logPanel">
+    <h2>Network stats</h2>
+    <div id="networkStats"></div>
+    <h2>Packet route log</h2>
+    <div id="routeLog"></div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  const PACKET_WINDOW = 20;
+  const FAILED_SCORE_PENALTY = 5;
+  const PACKET_FAIL_TIME = 22;
+  const MAP_MARGIN = 52;
+  const ROUTER_R = 22;
+  const PACKET_R = 4;
+  const PACKET_SPEED = 140;
+  const ROUTER_PAUSE = 0.12;
+  const LINK_COLOR = "#5a9fd4";
+  const LINK_DOWN_COLOR = "rgba(90, 45, 45, 0.35)";
+  const MAX_LOG_ENTRIES = 80;
+  const OUTAGE_WAIT_MIN = 10;
+  const OUTAGE_WAIT_MAX = 15;
+  const OUTAGE_BLINK_TIME = 3;
+  const OUTAGE_SOLID_TIME = 1;
+  const OUTAGE_DOWN_TIME = 15;
+
+  const CITIES = [
+    { name: "New York", lat: 40.71, lon: -74.01 },
+    { name: "Mexico City", lat: 19.43, lon: -99.13 },
+    { name: "São Paulo", lat: -23.55, lon: -46.63 },
+    { name: "London", lat: 51.51, lon: -0.13 },
+    { name: "Cairo", lat: 30.04, lon: 31.24 },
+    { name: "Moscow", lat: 55.76, lon: 37.62 },
+    { name: "Dubai", lat: 25.20, lon: 55.27 },
+    { name: "Mumbai", lat: 19.08, lon: 72.88 },
+    { name: "Singapore", lat: 1.35, lon: 103.82 },
+    { name: "Tokyo", lat: 35.68, lon: 139.69 },
+    { name: "Sydney", lat: -33.87, lon: 151.21 },
+    { name: "Johannesburg", lat: -26.20, lon: 28.04 },
+    { name: "Los Angeles", lat: 34.05, lon: -118.24 },
+  ];
+
+  const ROUTER_COLORS = [
+    "#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6",
+    "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#ff5722",
+    "#8bc34a", "#673ab7", "#ffc107",
+  ];
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const scoreEl = document.getElementById("scoreVal");
+  const avgDistEl = document.getElementById("avgDistVal");
+  const lineEl = document.getElementById("lineVal");
+  const failedWindowEl = document.getElementById("failedWindowVal");
+  const maxDistEl = document.getElementById("maxDistVal");
+  const faultTolEl = document.getElementById("faultTolVal");
+  const deliveredEl = document.getElementById("deliveredVal");
+  const connectedEl = document.getElementById("connectedVal");
+  const waitingEl = document.getElementById("waitingVal");
+  const legendEl = document.getElementById("legend");
+  const toastEl = document.getElementById("toast");
+  const routeLogEl = document.getElementById("routeLog");
+  const networkStatsEl = document.getElementById("networkStats");
+
+  let W, H, routers, links, packets, particles;
+  let delivered = 0, selectedRouter = null, mode = "draw";
+  let spawnTimer = 0, lastTime = 0;
+  let recentPacketResults = [];
+  let outage = { phase: "wait", linkIndex: -1, timer: OUTAGE_WAIT_MIN };
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toastEl.classList.remove("show"), 2200);
+  }
+
+  function resize() {
+    const wrap = document.getElementById("gameWrap");
+    const dpr = window.devicePixelRatio || 1;
+    W = wrap.clientWidth;
+    H = wrap.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function geoToCanvas(lat, lon) {
+    const mapW = W - 2 * MAP_MARGIN;
+    const mapH = H - 2 * MAP_MARGIN;
+    return {
+      x: MAP_MARGIN + ((lon + 180) / 360) * mapW,
+      y: MAP_MARGIN + ((90 - lat) / 180) * mapH,
+    };
+  }
+
+  function placeRouters() {
+    routers = CITIES.map((city, i) => {
+      const pos = geoToCanvas(city.lat, city.lon);
+      return {
+        x: pos.x,
+        y: pos.y,
+        id: i,
+        name: city.name,
+        color: ROUTER_COLORS[i % ROUTER_COLORS.length],
+        queue: [],
+      };
+    });
+    buildLegend();
+  }
+
+  function repositionRouters() {
+    routers.forEach((r, i) => {
+      const pos = geoToCanvas(CITIES[i].lat, CITIES[i].lon);
+      r.x = pos.x;
+      r.y = pos.y;
+    });
+  }
+
+  function buildLegend() {
+    legendEl.innerHTML =
+      "<strong style='color:#7ec8e3'>Cities (world map)</strong><br>" +
+      routers.map(r =>
+        `<span class="entry"><span class="swatch" style="background:${r.color}"></span>${r.name}</span>`
+      ).join("") +
+      "<br><span style='color:#8899aa'>Score% = (200÷avg − cables) × fault tol% − 5 per failed<br>Random cable blinks red → goes down 20s every 15–25s</span>";
+  }
+
+  function countInFlight() {
+    let n = packets.length;
+    routers.forEach(r => { n += r.queue.length; });
+    return n;
+  }
+
+  function registerPacketSpawn(pkt) {
+    recentPacketResults.push({ pktId: pkt.id, delivered: false, failed: false, distance: null });
+    if (recentPacketResults.length > PACKET_WINDOW) {
+      recentPacketResults.shift();
+    }
+  }
+
+  function markPacketDelivered(pkt) {
+    const entry = recentPacketResults.find(r => r.pktId === pkt.id);
+    if (entry) {
+      entry.delivered = true;
+      entry.failed = false;
+      entry.distance = pkt.cables;
+    }
+  }
+
+  function markPacketFailed(pkt) {
+    const entry = recentPacketResults.find(r => r.pktId === pkt.id);
+    if (entry && !entry.delivered) {
+      entry.failed = true;
+    }
+  }
+
+  function removePacketFromNetwork(pkt) {
+    routers.forEach(r => {
+      r.queue = r.queue.filter(p => p.id !== pkt.id);
+    });
+    packets = packets.filter(p => p.id !== pkt.id);
+  }
+
+  function failPacket(pkt, reason) {
+    if (pkt.failed) return;
+    pkt.failed = true;
+    markPacketFailed(pkt);
+    removePacketFromNetwork(pkt);
+    const src = routers[pkt.srcRouter];
+    const dest = routers[pkt.destRouter];
+    const route = (pkt.routeCities || [src.name]).join(" → ");
+    addLogEntry(
+      `<div>${src.name} → ${dest.name}</div>` +
+      `<div class="route">${route}</div>` +
+      `<div class="dist">failed: ${reason}</div>`,
+      true
+    );
+  }
+
+  function averageDistanceWindow() {
+    const deliveredEntries = recentPacketResults.filter(r => r.delivered && r.distance != null);
+    if (!deliveredEntries.length) return null;
+    return deliveredEntries.reduce((s, r) => s + r.distance, 0) / deliveredEntries.length;
+  }
+
+  function failedInWindow() {
+    return recentPacketResults.filter(r => r.failed).length;
+  }
+
+  function computeScore() {
+    const avgCable = averageDistanceWindow();
+    const cableNum = links.length;
+    const faultPercent = links.length ? computeFaultTolerance() : 0;
+    let raw = 100;
+
+    if (avgCable !== null && avgCable > 0) {
+      raw = (200 / avgCable - cableNum) * (faultPercent / 100);
+    } else {
+        raw = 0;
+    }
+    raw -= failedInWindow() * FAILED_SCORE_PENALTY;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  }
+
+  function tintStat(statBoxId, strongId, state) {
+    const box = document.getElementById(statBoxId);
+    const strong = document.getElementById(strongId);
+    if (!box || !strong) return;
+    box.classList.remove("good", "warn", "bad");
+    strong.classList.remove("good", "warn", "bad");
+    if (state) {
+      box.classList.add(state);
+      strong.classList.add(state);
+    }
+  }
+
+  function bfsDistances(start) {
+    const adj = buildAdj();
+    const dist = routers.map(() => Infinity);
+    dist[start] = 0;
+    const q = [start];
+    while (q.length) {
+      const cur = q.shift();
+      for (const e of adj[cur]) {
+        if (dist[e.router] === Infinity) {
+          dist[e.router] = dist[cur] + 1;
+          q.push(e.router);
+        }
+      }
+    }
+    return dist;
+  }
+
+  function isConnectedExcludingLink(skipLinkIdx) {
+    if (routers.length <= 1) return true;
+    const visited = new Set([0]);
+    const q = [0];
+    while (q.length) {
+      const cur = q.shift();
+      links.forEach((ln, li) => {
+        if (li === skipLinkIdx) return;
+        const next = ln.a === cur ? ln.b : ln.b === cur ? ln.a : -1;
+        if (next >= 0 && !visited.has(next)) {
+          visited.add(next);
+          q.push(next);
+        }
+      });
+    }
+    return visited.size === routers.length;
+  }
+
+  function computeMaxDistance() {
+    if (routers.length < 2) return 0;
+    if (links.length === 0) return "∞";
+    let maxCables = 0;
+    let reachablePairs = 0;
+    for (let i = 0; i < routers.length; i++) {
+      const dists = bfsDistances(i);
+      for (let j = i + 1; j < routers.length; j++) {
+        if (dists[j] === Infinity) continue;
+        reachablePairs++;
+        maxCables = Math.max(maxCables, dists[j]);
+      }
+    }
+    return reachablePairs === 0 ? "∞" : maxCables;
+  }
+
+  function computeFaultTolerance() {
+    if (links.length === 0) return 0;
+    let survived = 0;
+    for (let i = 0; i < links.length; i++) {
+      if (isConnectedExcludingLink(i)) survived++;
+    }
+    return Math.round((survived / links.length) * 100);
+  }
+
+  function isNetworkConnected() {
+    if (routers.length <= 1) return true;
+    if (!links.some(linkIsUp)) return false;
+    const adj = buildAdj();
+    const visited = new Set([0]);
+    const q = [0];
+    while (q.length) {
+      const cur = q.shift();
+      for (const e of adj[cur]) {
+        if (!visited.has(e.router)) {
+          visited.add(e.router);
+          q.push(e.router);
+        }
+      }
+    }
+    return visited.size === routers.length;
+  }
+
+  function statClass(kind) {
+    return kind ? `stat-line ${kind}` : "stat-line";
+  }
+
+  function updateNetworkStatsPanel() {
+    const maxD = computeMaxDistance();
+    const fault = computeFaultTolerance();
+    const connected = isNetworkConnected();
+    const bridges = links.length - Math.round((fault / 100) * links.length);
+    const failed = failedInWindow();
+
+    const maxClass = maxD === "∞" || maxD >= 7 ? "bad" : maxD >= 4 ? "warn" : "good";
+    const faultClass = fault < 40 ? "bad" : fault < 70 ? "warn" : "good";
+    const connClass = connected ? "good" : "bad";
+    const bridgeClass = bridges >= 6 ? "bad" : bridges >= 3 ? "warn" : "good";
+    const failClass = failed > 0 ? "bad" : "good";
+    const outageLine = getOutageStatusLine();
+    const outageClass = outage.phase === "down" ? "bad" : outage.phase === "wait" ? "good" : "warn";
+
+    networkStatsEl.innerHTML =
+      `<span class="${statClass(maxClass)}">Max distance: <strong>${maxD}</strong> cable${maxD === 1 ? "" : "s"}</span>` +
+      `<span class="${statClass(faultClass)}">Fault tolerance: <strong>${fault}%</strong> redundant links</span>` +
+      `<span class="${statClass(connClass)}">Network connected: <strong>${connected ? "yes" : "no"}</strong></span>` +
+      `<span class="${statClass(bridgeClass)}">Single points of failure: <strong>${bridges}</strong> link${bridges === 1 ? "" : "s"}</span>` +
+      `<span class="${statClass(outageClass)}">Cable outage sim: <strong>${outageLine}</strong></span>` +
+      `<span class="${statClass(failClass)}">Failed packets (last 20): <strong>${failed}</strong> (−${failed * FAILED_SCORE_PENALTY}% score)</span>`;
+  }
+
+  function getOutageStatusLine() {
+    if (links.length === 0) return "no cables";
+    if (outage.phase === "wait") return `next fault in ${Math.ceil(outage.timer)}s`;
+    if (outage.linkIndex < 0) return "—";
+    const name = linkLabel(outage.linkIndex);
+    if (outage.phase === "blink") return `${name} · blinking (${Math.ceil(outage.timer)}s)`;
+    if (outage.phase === "solid") return `${name} · critical (${Math.ceil(outage.timer)}s)`;
+    if (outage.phase === "down") return `${name} · DOWN (${Math.ceil(outage.timer)}s)`;
+    return "—";
+  }
+
+  function addLogEntry(html, stuck) {
+    const el = document.createElement("div");
+    el.className = "log-entry" + (stuck ? " stuck" : "");
+    el.innerHTML = html;
+    routeLogEl.insertBefore(el, routeLogEl.firstChild);
+    while (routeLogEl.children.length > MAX_LOG_ENTRIES) {
+      routeLogEl.removeChild(routeLogEl.lastChild);
+    }
+  }
+
+  function logDelivery(pkt) {
+    const src = routers[pkt.srcRouter];
+    const dest = routers[pkt.destRouter];
+    const route = pkt.routeCities.join(" → ");
+    const dist = pkt.cables;
+    addLogEntry(
+      `<div>${src.name} → ${dest.name}</div>` +
+      `<div class="route">${route}</div>` +
+      `<div class="dist">distance: ${dist} cable${dist === 1 ? "" : "s"}</div>`
+    );
+  }
+
+  function linkKey(a, b) {
+    return a < b ? a + "-" + b : b + "-" + a;
+  }
+
+  function findLink(a, b) {
+    const key = linkKey(a, b);
+    return links.findIndex(l => linkKey(l.a, l.b) === key);
+  }
+
+  function initGame() {
+    placeRouters();
+    links = [];
+    packets = [];
+    particles = [];
+    recentPacketResults = [];
+    delivered = 0;
+    selectedRouter = null;
+    spawnTimer = 0;
+    routeLogEl.innerHTML = "";
+    outage = { phase: "wait", linkIndex: -1, timer: randOutageWait() };
+    updateUI();
+  }
+
+  function routerAt(mx, my) {
+    for (let i = routers.length - 1; i >= 0; i--) {
+      const r = routers[i];
+      if (Math.hypot(mx - r.x, my - r.y) <= ROUTER_R + 10) return i;
+    }
+    return -1;
+  }
+
+  function linkAt(mx, my) {
+    let best = -1, bestD = 14;
+    links.forEach((ln, i) => {
+      const a = routers[ln.a], b = routers[ln.b];
+      const d = pointSegDist(mx, my, a.x, a.y, b.x, b.y);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+
+  function pointSegDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 1e-6) return Math.hypot(px - x1, py - y1);
+    let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - x1 - t * dx, py - y1 - t * dy);
+  }
+
+  function linkIsUp(ln) {
+    return (ln.status || "up") !== "down";
+  }
+
+  function randOutageWait() {
+    return rand(OUTAGE_WAIT_MIN, OUTAGE_WAIT_MAX);
+  }
+
+  function linkLabel(li) {
+    const ln = links[li];
+    return routers[ln.a].name + " ↔ " + routers[ln.b].name;
+  }
+
+  function buildAdj() {
+    const adj = routers.map(() => []);
+    links.forEach((ln, li) => {
+      if (!linkIsUp(ln)) return;
+      adj[ln.a].push({ router: ln.b, link: li });
+      adj[ln.b].push({ router: ln.a, link: li });
+    });
+    return adj;
+  }
+
+  function bfsPath(from, to) {
+    if (from === to) return [from];
+    const adj = buildAdj();
+    const parent = new Map();
+    const q = [from];
+    const visited = new Set([from]);
+    while (q.length) {
+      const cur = q.shift();
+      if (cur === to) {
+        const path = [to];
+        let step = to;
+        while (parent.has(step)) {
+          step = parent.get(step);
+          path.unshift(step);
+        }
+        return path;
+      }
+      for (const e of adj[cur]) {
+        if (!visited.has(e.router)) {
+          visited.add(e.router);
+          parent.set(e.router, cur);
+          q.push(e.router);
+        }
+      }
+    }
+    return null;
+  }
+
+  function addLink(a, b) {
+    if (a === b) return;
+    if (findLink(a, b) >= 0) {
+      toast("Link already exists");
+      return;
+    }
+    const len = dist(routers[a], routers[b]);
+    links.push({ a, b, len, status: "up" });
+    if (links.length === 1) {
+      outage = { phase: "wait", linkIndex: -1, timer: randOutageWait() };
+    }
+    spawnParticle(
+      (routers[a].x + routers[b].x) / 2,
+      (routers[a].y + routers[b].y) / 2,
+      "cost", links.length + " cables"
+    );
+    updateUI();
+    toast(`Link ${routers[a].name} ↔ ${routers[b].name}`);
+  }
+
+  function ejectPacketsFromLink(linkIdx) {
+    const stranded = packets.filter(p => p.state === "flight" && p.linkIndex === linkIdx);
+    stranded.forEach(pkt => {
+      pkt.state = "queued";
+      pkt.t = 0;
+      pkt.pause = ROUTER_PAUSE;
+      routers[pkt.fromRouter].queue.push(pkt);
+    });
+    packets = packets.filter(p => !(p.state === "flight" && p.linkIndex === linkIdx));
+  }
+
+  function pickRandomLinkIndex() {
+    const up = links.map((ln, i) => i).filter(i => links[i].status === "up");
+    if (!up.length) return -1;
+    return up[Math.floor(Math.random() * up.length)];
+  }
+
+  function updateOutageSimulation(dt) {
+    if (links.length === 0) {
+      outage.phase = "wait";
+      outage.linkIndex = -1;
+      outage.timer = randOutageWait();
+      return;
+    }
+
+    outage.timer -= dt;
+
+    if (outage.phase === "wait") {
+      if (outage.timer <= 0) {
+        const li = pickRandomLinkIndex();
+        if (li < 0) {
+          outage.timer = randOutageWait();
+          return;
+        }
+        outage.linkIndex = li;
+        links[li].status = "blink";
+        outage.phase = "blink";
+        outage.timer = OUTAGE_BLINK_TIME;
+        toast("Cable fault: " + linkLabel(li) + " (blinking)");
+        addLogEntry(
+          `<div>Cable outage sim</div>` +
+          `<div class="route">${linkLabel(li)}</div>` +
+          `<div class="dist">warning — blinking red</div>`,
+          true
+        );
+      }
+      return;
+    }
+
+    const li = outage.linkIndex;
+    if (li < 0 || !links[li]) {
+      outage.phase = "wait";
+      outage.timer = randOutageWait();
+      return;
+    }
+
+    if (outage.phase === "blink") {
+      if (outage.timer <= 0) {
+        links[li].status = "solid";
+        outage.phase = "solid";
+        outage.timer = OUTAGE_SOLID_TIME;
+      }
+      return;
+    }
+
+    if (outage.phase === "solid") {
+      if (outage.timer <= 0) {
+        links[li].status = "down";
+        outage.phase = "down";
+        outage.timer = OUTAGE_DOWN_TIME;
+        ejectPacketsFromLink(li);
+        toast("Cable DOWN: " + linkLabel(li) + " (20s)");
+        addLogEntry(
+          `<div>Cable outage sim</div>` +
+          `<div class="route">${linkLabel(li)}</div>` +
+          `<div class="dist">OFF — no traffic for 20s</div>`,
+          true
+        );
+      }
+      return;
+    }
+
+    if (outage.phase === "down") {
+      if (outage.timer <= 0) {
+        links[li].status = "up";
+        outage.linkIndex = -1;
+        outage.phase = "wait";
+        outage.timer = randOutageWait();
+        toast("Cable restored — next fault in " + Math.round(outage.timer) + "s");
+        addLogEntry(
+          `<div>Cable outage sim</div>` +
+          `<div class="route">${linkLabel(li)}</div>` +
+          `<div class="dist">restored</div>`
+        );
+      }
+    }
+  }
+
+  function removeLink(i) {
+    if (i < 0) return;
+    if (outage.linkIndex === i) {
+      outage.phase = "wait";
+      outage.linkIndex = -1;
+      outage.timer = randOutageWait();
+    } else if (outage.linkIndex > i) {
+      outage.linkIndex--;
+    }
+    links.splice(i, 1);
+    packets = packets.filter(p => {
+      if (p.state === "flight" && p.linkIndex === i) return false;
+      if (p.state === "flight" && p.linkIndex > i) p.linkIndex--;
+      return true;
+    });
+    routers.forEach(r => {
+      r.queue = r.queue.filter(pkt => {
+        const path = bfsPath(r.id, pkt.destRouter);
+        return path && path.length > 1;
+      });
+    });
+    updateUI();
+  }
+
+  function spawnPacket() {
+    if (routers.length < 2) return;
+    const src = Math.floor(Math.random() * routers.length);
+    let dest = Math.floor(Math.random() * routers.length);
+    while (dest === src) dest = Math.floor(Math.random() * routers.length);
+
+    const path = bfsPath(src, dest);
+    const pkt = {
+      id: Math.random(),
+      srcRouter: src,
+      destRouter: dest,
+      cables: 0,
+      routeCities: [routers[src].name],
+      failed: false,
+      path: path,
+      state: "queued",
+      pause: 0,
+      anim: Math.random() * Math.PI * 2,
+      t: 0,
+      linkIndex: -1,
+      fromRouter: src,
+      toRouter: dest,
+      age: 0,
+    };
+    registerPacketSpawn(pkt);
+
+    if (path && path.length > 1) {
+      routers[src].queue.push(pkt);
+      spawnParticle(routers[src].x, routers[src].y - 28, "spawn",
+        routers[src].name + " → " + routers[dest].name);
+    } else {
+      routers[src].queue.push(pkt);
+    }
+  }
+
+  function spawnParticle(x, y, kind, text) {
+    particles.push({ x, y, kind, text, life: 1, vy: kind === "cost" ? -0.7 : -1.1 });
+  }
+
+  function deliverPacket(pkt, atRouter) {
+    delivered++;
+    const r = routers[atRouter];
+    markPacketDelivered(pkt);
+    logDelivery(pkt);
+    spawnParticle(r.x, r.y, "deliver", pkt.cables + " cable" + (pkt.cables === 1 ? "" : "s"));
+    particles.push({
+      x: r.x, y: r.y, kind: "burst", life: 0.7,
+      angle: Math.random() * Math.PI * 2,
+    });
+    updateUI();
+  }
+
+  function startFlight(pkt, from, to) {
+    const li = findLink(from, to);
+    if (li < 0) return false;
+    if (!linkIsUp(links[li])) return false;
+    pkt.state = "flight";
+    pkt.linkIndex = li;
+    pkt.fromRouter = from;
+    pkt.toRouter = to;
+    pkt.t = 0;
+    return true;
+  }
+
+  function processRouterQueue(routerIdx, dt) {
+    const r = routers[routerIdx];
+    const remaining = [];
+
+    r.queue.forEach(pkt => {
+      if (pkt.failed) return;
+
+      if (pkt.pause > 0) {
+        pkt.pause -= dt;
+        remaining.push(pkt);
+        return;
+      }
+
+      if (routerIdx === pkt.destRouter) {
+        deliverPacket(pkt, routerIdx);
+        return;
+      }
+
+      pkt.path = bfsPath(routerIdx, pkt.destRouter);
+      if (!pkt.path || pkt.path.length < 2) {
+        pkt.anim += dt * 5;
+        remaining.push(pkt);
+        return;
+      }
+
+      const next = pkt.path[1];
+      if (!startFlight(pkt, routerIdx, next)) {
+        remaining.push(pkt);
+        return;
+      }
+      packets.push(pkt);
+      spawnParticle(r.x, r.y + 8, "forward", "→ " + routers[next].name);
+    });
+
+    r.queue = remaining;
+  }
+
+  function updatePackets(dt) {
+    const stillFlying = [];
+    packets.forEach(pkt => {
+      if (pkt.state !== "flight" || pkt.failed) return;
+
+      const ln = links[pkt.linkIndex];
+      if (!ln) return;
+
+      const segLen = ln.len || 1;
+      pkt.t += (PACKET_SPEED * dt) / segLen;
+
+      if (pkt.t >= 1) {
+        pkt.t = 1;
+        pkt.state = "queued";
+        pkt.pause = ROUTER_PAUSE;
+        pkt.cables++;
+        pkt.routeCities.push(routers[pkt.toRouter].name);
+        routers[pkt.toRouter].queue.push(pkt);
+      } else {
+        stillFlying.push(pkt);
+      }
+    });
+    packets = stillFlying;
+
+    routers.forEach((_, i) => processRouterQueue(i, dt));
+
+    const toFail = [];
+    routers.forEach(r => {
+      r.queue.forEach(pkt => {
+        pkt.age = (pkt.age || 0) + dt;
+        const path = bfsPath(r.id, pkt.destRouter);
+        if (pkt.age > 14 && (!path || path.length < 2)) {
+          toFail.push({ pkt, reason: "no route" });
+        } else if (pkt.age > PACKET_FAIL_TIME) {
+          toFail.push({ pkt, reason: "timeout" });
+        }
+      });
+    });
+    packets.forEach(pkt => {
+      pkt.age = (pkt.age || 0) + dt;
+      if (pkt.age > PACKET_FAIL_TIME) {
+        toFail.push({ pkt, reason: "timeout" });
+      }
+    });
+    const failedIds = new Set();
+    toFail.forEach(({ pkt, reason }) => {
+      if (!failedIds.has(pkt.id)) {
+        failedIds.add(pkt.id);
+        failPacket(pkt, reason);
+      }
+    });
+
+    spawnTimer += dt;
+    const interval = Math.max(0.9, 2.2 - links.length * 0.1);
+    if (spawnTimer > interval) {
+      spawnTimer = 0;
+      if (Math.random() < 0.88) spawnPacket();
+    }
+    updateOutageSimulation(dt);
+    updateUI();
+  }
+
+  function updateParticles(dt) {
+    particles = particles.filter(p => {
+      p.life -= dt * 0.85;
+      p.y += (p.vy || 0) * 22 * dt;
+      if (p.kind === "burst") {
+        p.x += Math.cos(p.angle) * 35 * dt;
+        p.y += Math.sin(p.angle) * 35 * dt;
+      }
+      return p.life > 0;
+    });
+  }
+
+  function updateUI() {
+    const avg = averageDistanceWindow();
+    const score = computeScore();
+    const failed = failedInWindow();
+    const maxD = computeMaxDistance();
+    const fault = links.length ? computeFaultTolerance() : 0;
+    const connected = isNetworkConnected();
+    const inFlight = countInFlight();
+
+    scoreEl.textContent = score + "%";
+    avgDistEl.textContent = avg === null ? "—" : avg.toFixed(2);
+    lineEl.textContent = links.length;
+    failedWindowEl.textContent = failed;
+    maxDistEl.textContent = maxD;
+    faultTolEl.textContent = links.length ? fault + "%" : "—";
+    connectedEl.textContent = connected ? "yes" : "no";
+    deliveredEl.textContent = delivered;
+    waitingEl.textContent = inFlight;
+
+    tintStat("statScore", "scoreVal", score < 40 ? "bad" : score < 70 ? "warn" : "good");
+    tintStat("statAvg", "avgDistVal", avg === null ? null : avg > 6 ? "bad" : avg > 4 ? "warn" : "good");
+    tintStat("statFailed", "failedWindowVal", failed > 0 ? "bad" : "good");
+    tintStat("statMaxPath", "maxDistVal", maxD === "∞" || maxD >= 7 ? "bad" : maxD >= 4 ? "warn" : links.length ? "good" : "warn");
+    tintStat("statFault", "faultTolVal", !links.length ? "warn" : fault < 40 ? "bad" : fault < 70 ? "warn" : "good");
+    tintStat("statConnected", "connectedVal", connected ? "good" : "bad");
+    tintStat("statInflight", "waitingVal", inFlight > 12 ? "bad" : inFlight > 6 ? "warn" : null);
+    tintStat("statCables", "lineVal", links.length === 0 ? "warn" : null);
+
+    updateNetworkStatsPanel();
+  }
+
+  function packetPos(pkt) {
+    const ln = links[pkt.linkIndex];
+    const a = routers[ln.a], b = routers[ln.b];
+    const from = pkt.fromRouter === ln.a ? a : b;
+    const to = pkt.fromRouter === ln.a ? b : a;
+    const t = pkt.t;
+    return {
+      x: from.x + (to.x - from.x) * t,
+      y: from.y + (to.y - from.y) * t,
+    };
+  }
+
+  function drawRouter(r, i, selected) {
+    const pulse = 1 + Math.sin(Date.now() / 500 + i) * 0.02;
+
+    if (selected) {
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, ROUTER_R + 12, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(93,255,176,0.15)";
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(r.x, r.y);
+    ctx.scale(pulse, pulse);
+
+    ctx.fillStyle = "#1e2a38";
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, ROUTER_R * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = r.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, ROUTER_R * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawCityLabel(r) {
+    ctx.fillStyle = "rgba(220,235,250,0.95)";
+    ctx.font = "bold 10px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const label = r.name.length > 14 ? r.name.slice(0, 13) + "…" : r.name;
+    ctx.fillText(label, r.x, r.y + ROUTER_R + 6);
+  }
+
+  function roundRect(x, y, w, h, rad) {
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.lineTo(x + w - rad, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+    ctx.lineTo(x + w, y + h - rad);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+    ctx.lineTo(x + rad, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+    ctx.lineTo(x, y + rad);
+    ctx.quadraticCurveTo(x, y, x + rad, y);
+    ctx.closePath();
+  }
+
+  function drawWorldMap() {
+    const m = MAP_MARGIN;
+    const mapW = W - 2 * m;
+    const mapH = H - 2 * m;
+
+    ctx.fillStyle = "#0c1828";
+    ctx.fillRect(m, m, mapW, mapH);
+
+    ctx.strokeStyle = "rgba(70,110,150,0.35)";
+    ctx.lineWidth = 1;
+    for (let lon = -180; lon <= 180; lon += 30) {
+      const x = m + ((lon + 180) / 360) * mapW;
+      ctx.beginPath();
+      ctx.moveTo(x, m);
+      ctx.lineTo(x, m + mapH);
+      ctx.stroke();
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const y = m + ((90 - lat) / 180) * mapH;
+      ctx.beginPath();
+      ctx.moveTo(m, y);
+      ctx.lineTo(m + mapW, y);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "rgba(90,140,180,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(m, m, mapW, mapH);
+
+    ctx.fillStyle = "rgba(120,160,200,0.45)";
+    ctx.font = "11px Consolas, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("World map (equirectangular)", m + 8, m + 16);
+  }
+
+  function draw() {
+    ctx.fillStyle = "#0a1018";
+    ctx.fillRect(0, 0, W, H);
+    drawWorldMap();
+
+    links.forEach((ln, i) => {
+      const a = routers[ln.a], b = routers[ln.b];
+      const st = ln.status || "up";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+
+      if (st === "down") {
+        ctx.setLineDash([10, 10]);
+        ctx.strokeStyle = LINK_DOWN_COLOR;
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        ctx.strokeStyle = "#ff4444";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(mx - 8, my - 8);
+        ctx.lineTo(mx + 8, my + 8);
+        ctx.moveTo(mx + 8, my - 8);
+        ctx.lineTo(mx - 8, my + 8);
+        ctx.stroke();
+        return;
+      }
+
+      if (st === "blink") {
+        const on = Math.sin(Date.now() / 120) > 0;
+        ctx.strokeStyle = on ? "#ff5555" : "#992222";
+        ctx.globalAlpha = on ? 0.95 : 0.55;
+        ctx.lineWidth = 5;
+      } else if (st === "solid") {
+        ctx.strokeStyle = "#ff2222";
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 5;
+      } else {
+        ctx.strokeStyle = LINK_COLOR;
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = 4;
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if (st !== "down") {
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    });
+
+    if (selectedRouter !== null && mode === "draw") {
+      const r = routers[selectedRouter];
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = "#5dffb0";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y);
+      ctx.lineTo(previewX, previewY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    routers.forEach((r, i) => drawRouter(r, i, selectedRouter === i));
+    routers.forEach(drawCityLabel);
+
+    routers.forEach(r => {
+      const n = r.queue.length;
+      for (let j = 0; j < Math.min(n, 10); j++) {
+        const pkt = r.queue[j];
+        const angle = (j / Math.max(1, n)) * Math.PI * 2 + pkt.anim;
+        const orbit = ROUTER_R + 14 + (j % 3) * 5;
+        const px = r.x + Math.cos(angle) * orbit;
+        const py = r.y + Math.sin(angle) * orbit;
+        const dest = routers[pkt.destRouter];
+        ctx.beginPath();
+        ctx.arc(px, py, PACKET_R, 0, Math.PI * 2);
+        ctx.fillStyle = dest.color;
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        if (j === 0 && n > 0) {
+          ctx.fillStyle = "#8899aa";
+          ctx.font = "8px Consolas, monospace";
+          ctx.textAlign = "center";
+          const dn = dest.name.length > 8 ? dest.name.slice(0, 7) + "…" : dest.name;
+          ctx.fillText("→" + dn, px, py - 9);
+        }
+      }
+    });
+
+    packets.forEach(pkt => {
+      if (pkt.state !== "flight") return;
+      const pos = packetPos(pkt);
+      const dest = routers[pkt.destRouter];
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, PACKET_R + 1, 0, Math.PI * 2);
+      ctx.fillStyle = dest.color;
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(200,220,240,0.9)";
+      ctx.font = "8px Consolas, monospace";
+      ctx.textAlign = "center";
+      const dn = dest.name.length > 8 ? dest.name.slice(0, 7) + "…" : dest.name;
+      ctx.fillText(dn, pos.x, pos.y - 10);
+    });
+
+    particles.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life);
+      if (p.text) {
+        ctx.fillStyle = p.kind === "cost" ? "#ff6b6b" : p.kind === "forward" ? "#54d4ff" : "#5dffb0";
+        ctx.font = "bold 12px Consolas, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(p.text, p.x, p.y);
+      } else if (p.kind === "burst") {
+        ctx.fillStyle = "#5dffb0";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5 * p.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    });
+
+  }
+
+  let previewX = 0, previewY = 0;
+
+  function loop(ts) {
+    const dt = Math.min(0.05, (ts - lastTime) / 1000 || 0.016);
+    lastTime = ts;
+    routers.forEach(r => {
+      r.queue.forEach(pkt => { pkt.anim += dt * 4; });
+    });
+    updatePackets(dt);
+    updateParticles(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  canvas.addEventListener("mousemove", e => {
+    const rect = canvas.getBoundingClientRect();
+    previewX = e.clientX - rect.left;
+    previewY = e.clientY - rect.top;
+  });
+
+  canvas.addEventListener("click", e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const ri = routerAt(mx, my);
+
+    if (mode === "erase") {
+      const li = linkAt(mx, my);
+      if (li >= 0) {
+        removeLink(li);
+        toast("Link removed");
+      }
+      return;
+    }
+
+    if (ri < 0) {
+      selectedRouter = null;
+      return;
+    }
+
+    if (selectedRouter === null) {
+      selectedRouter = ri;
+    } else if (selectedRouter === ri) {
+      selectedRouter = null;
+    } else {
+      addLink(selectedRouter, ri);
+      selectedRouter = null;
+    }
+  });
+
+  document.getElementById("drawBtn").addEventListener("click", () => {
+    mode = "draw";
+    document.getElementById("drawBtn").classList.add("active");
+    document.getElementById("eraseBtn").classList.remove("active");
+    selectedRouter = null;
+  });
+  document.getElementById("eraseBtn").addEventListener("click", () => {
+    mode = "erase";
+    document.getElementById("eraseBtn").classList.add("active");
+    document.getElementById("drawBtn").classList.remove("active");
+    selectedRouter = null;
+  });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    initGame();
+    toast("New topology");
+  });
+
+  window.addEventListener("resize", () => {
+    resize();
+    if (routers.length) repositionRouters();
+  });
+
+  resize();
+  initGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

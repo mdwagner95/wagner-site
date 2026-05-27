@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>2D Array + Nested Loop Visualizer</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      padding: 20px;
+      background: #f8f8f8;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    table { border-collapse: collapse; }
+    td {
+      border: 2px solid #444;
+      padding: 4px;
+    }
+    input.cell {
+      width: 60px;
+      text-align: center;
+    }
+    .current-row { background: #fff3b0; }
+    .current-col { background: #cce7ff; }
+    .current-cell { background: #ffb703 !important; }
+    .index-label {
+      font-weight: bold;
+      text-align: center;
+      padding: 4px;
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      color: #666;
+    }
+    .index-label.current-row {
+      background: #fff3b0;
+    }
+    .index-label.current-col {
+      background: #cce7ff;
+    }
+    .row-index {
+      width: 40px;
+    }
+    .col-index {
+      height: 30px;
+    }
+    .loop-editor {
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      line-height: 1.8;
+      margin: 15px 0;
+    }
+    .loop-editor input {
+      min-width: 70px;
+      margin: 0 4px;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      border: none;
+      border-bottom: 2px solid #4CAF50;
+      background: #f9f9f9;
+      padding: 2px 4px;
+      transition: background 0.2s;
+      flex: 1;
+      max-width: 300px;
+    }
+    .loop-editor input:focus {
+      outline: none;
+      background: #fff;
+      border-bottom-color: #2196F3;
+    }
+    #rCond, #cCond {
+      min-width: 150px;
+      flex: 1.5;
+    }
+    #loopBody {
+      min-width: 300px;
+      flex: 2;
+      max-width: 600px;
+    }
+    #rInit, #cInit {
+      min-width: 100px;
+      flex: 1;
+    }
+    .array-def {
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      margin-bottom: 15px;
+      line-height: 1.8;
+    }
+    .array-def input {
+      width: 50px;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      border: none;
+      border-bottom: 2px solid #4CAF50;
+      background: #f9f9f9;
+      padding: 2px 4px;
+      text-align: center;
+      margin: 0 2px;
+      transition: background 0.2s;
+    }
+    .array-def input:focus {
+      outline: none;
+      background: #fff;
+      border-bottom-color: #2196F3;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.3s, transform 0.1s;
+      margin: 0 5px;
+    }
+    button:hover {
+      background: #45a049;
+      transform: translateY(-1px);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    #controls {
+      margin-top: 15px;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    #stepInfo {
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      background: #f0f0f0;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-left: 15px;
+      font-weight: bold;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 20px;
+      border: 2px solid #888;
+      border-radius: 8px;
+      width: 300px;
+      text-align: center;
+    }
+    .modal-content button {
+      margin-top: 15px;
+      padding: 8px 20px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h2>2D Java Array Visualizer</h2>
+
+<div class="array-def">
+  int arr[<input id="rowSize" placeholder="rows" size="5" value="3">][<input id="colSize" placeholder="cols" size="5" value="4">];
+  <button onclick="parseArray()">Create Grid</button>
+</div>
+
+<h3>Nested Loop (Editable Parts)</h3>
+<div class="loop-editor">
+  for (int <input id="rInit" value="row = 0">; 
+  <input id="rCond" value="row < arr.length">; 
+  <input id="rInc" value="row++">) <br>
+  &nbsp;&nbsp;for (int <input id="cInit" value="col = 0">; 
+  <input id="cCond" value="col < arr[0].length">; 
+  <input id="cInc" value="col++">) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<input id="loopBody" placeholder="e.g. arr[row][col] = row * col"><br>
+  &nbsp;&nbsp;}
+</div>
+
+<div id="gridWrapper" style="margin-top:15px;"></div>
+
+<div id="controls" style="display:none; margin-top:10px;">
+  <button onclick="resetStepper()">Reset Code</button>
+  <button onclick="resetArray()">Reset Array</button>
+  <button onclick="prevStep()">Prev</button>
+  <button onclick="nextStep()">Next</button>
+  <span id="stepInfo"></span>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <p id="modalMessage"></p>
+    <button onclick="closeModal()">OK</button>
+  </div>
+</div>
+
+<script>
+let rows, cols, gridEls;
+let r = 0, c = 0;
+let defaultValue = "";
+
+function parseArray() {
+  const rowInput = document.getElementById("rowSize").value;
+  const colInput = document.getElementById("colSize").value;
+
+  rows = parseInt(rowInput);
+  cols = parseInt(colInput);
+
+  if (isNaN(rows) || isNaN(cols) || rows <= 0 || cols <= 0) {
+    alert("Invalid array dimensions");
+    return;
+  }
+
+  defaultValue = 0;
+  buildGrid();
+}
+
+function buildGrid() {
+  const wrapper = document.getElementById("gridWrapper");
+  wrapper.innerHTML = "";
+
+  const table = document.createElement("table");
+  gridEls = [];
+
+  // Add column index header row
+  const headerRow = document.createElement("tr");
+  const emptyCorner = document.createElement("td");
+  emptyCorner.className = "index-label";
+  headerRow.appendChild(emptyCorner);
+  
+  const colIndexEls = [];
+  for (let j = 0; j < cols; j++) {
+    const th = document.createElement("td");
+    th.className = "index-label col-index";
+    th.textContent = j;
+    headerRow.appendChild(th);
+    colIndexEls[j] = th;
+  }
+  table.appendChild(headerRow);
+
+  // Add data rows with row index
+  const rowIndexEls = [];
+  for (let i = 0; i < rows; i++) {
+    const tr = document.createElement("tr");
+    
+    // Add row index label
+    const rowLabel = document.createElement("td");
+    rowLabel.className = "index-label row-index";
+    rowLabel.textContent = i;
+    tr.appendChild(rowLabel);
+    rowIndexEls[i] = rowLabel;
+    
+    gridEls[i] = [];
+    for (let j = 0; j < cols; j++) {
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.className = "cell";
+      input.value = defaultValue;
+      td.appendChild(input);
+      tr.appendChild(td);
+      gridEls[i][j] = td;
+    }
+    table.appendChild(tr);
+  }
+  wrapper.appendChild(table);
+
+  // Store references to index elements
+  window.colIndexEls = colIndexEls;
+  window.rowIndexEls = rowIndexEls;
+
+  resetStepper();
+  document.getElementById("controls").style.display = "block";
+}
+
+function updateHighlight() {
+  // Clear all cell highlights
+  for (let i = 0; i < rows; i++)
+    for (let j = 0; j < cols; j++)
+      gridEls[i][j].className = "";
+
+  // Clear all index highlights
+  if (window.rowIndexEls) {
+    for (let i = 0; i < rows; i++)
+      window.rowIndexEls[i].className = "index-label row-index";
+  }
+  if (window.colIndexEls) {
+    for (let j = 0; j < cols; j++)
+      window.colIndexEls[j].className = "index-label col-index";
+  }
+
+  if (r >= 0 && r < rows && c >= 0 && c < cols) {
+    // Highlight current row and column cells
+    for (let j = 0; j < cols; j++) gridEls[r][j].classList.add("current-row");
+    for (let i = 0; i < rows; i++) gridEls[i][c].classList.add("current-col");
+    gridEls[r][c].classList.add("current-cell");
+    
+    // Highlight row and column indices
+    if (window.rowIndexEls) window.rowIndexEls[r].classList.add("current-row");
+    if (window.colIndexEls) window.colIndexEls[c].classList.add("current-col");
+    
+    // Execute loop body code if present
+    executeLoopBody();
+  }
+
+  document.getElementById("stepInfo").textContent = `row=${r}, col=${c}`;
+}
+
+function executeLoopBody() {
+  const loopBodyCode = document.getElementById("loopBody").value.trim();
+  if (!loopBodyCode) return;
+  
+  try {
+    // Create array reference object
+    const arr = [];
+    for (let i = 0; i < rows; i++) {
+      arr[i] = [];
+      for (let j = 0; j < cols; j++) {
+        const inputEl = gridEls[i][j].querySelector('input');
+        const val = inputEl.value;
+        // Try to parse as number, otherwise keep as string
+        arr[i][j] = isNaN(val) || val === '' ? val : parseFloat(val);
+      }
+    }
+    
+    // Execute the code with current row/col context
+    const row = r;
+    const col = c;
+    console.log(`Executing loop body: "${loopBodyCode}" at row=${row}, col=${col}`);
+    
+    eval(loopBodyCode);
+    
+    // Update the grid with any changes to arr
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const inputEl = gridEls[i][j].querySelector('input');
+        if (arr[i] && arr[i][j] !== undefined) {
+          inputEl.value = arr[i][j];
+        }
+      }
+    }
+  } catch (e) {
+    console.error(`Error executing loop body: "${loopBodyCode}"`, e);
+  }
+}
+
+function evalLoopConfig() {
+  const rInitExpr = document.getElementById("rInit").value;
+  const cInitExpr = document.getElementById("cInit").value;
+  const rIncExpr = document.getElementById("rInc").value;
+  const cIncExpr = document.getElementById("cInc").value;
+  
+  // Create array reference object for evaluation
+  const arr = [];
+  for (let i = 0; i < rows; i++) {
+    arr[i] = [];
+    arr[i].length = cols;
+    for (let j = 0; j < cols; j++) {
+      const inputEl = gridEls[i][j].querySelector('input');
+      const val = inputEl.value;
+      arr[i][j] = isNaN(val) || val === '' ? val : parseFloat(val);
+    }
+  }
+  arr.length = rows;
+  
+  // Parse initialization expressions (e.g., "row = 0" or "i = arr.length - 1")
+  let rStartVal = 0, cStartVal = 0;
+  try {
+    const rMatch = rInitExpr.match(/=\s*(.+)/);
+    if (rMatch) {
+      rStartVal = eval(rMatch[1].trim());
+    }
+  } catch {
+    rStartVal = 0;
+  }
+  try {
+    const cMatch = cInitExpr.match(/=\s*(.+)/);
+    if (cMatch) {
+      cStartVal = eval(cMatch[1].trim());
+    }
+  } catch {
+    cStartVal = 0;
+  }
+  
+  // Parse increment expressions
+  let rIncVal = 1, cIncVal = 1;
+  
+  // Check for += or -= patterns
+  const rPlusMatch = rIncExpr.match(/\+=\s*(\d+)/);
+  const rMinusMatch = rIncExpr.match(/-=\s*(\d+)/);
+  const cPlusMatch = cIncExpr.match(/\+=\s*(\d+)/);
+  const cMinusMatch = cIncExpr.match(/-=\s*(\d+)/);
+  
+  if (rPlusMatch) rIncVal = parseInt(rPlusMatch[1]);
+  else if (rMinusMatch) rIncVal = -parseInt(rMinusMatch[1]);
+  else if (rIncExpr.includes("--")) rIncVal = -1;
+  else if (rIncExpr.includes("++")) rIncVal = 1;
+  
+  if (cPlusMatch) cIncVal = parseInt(cPlusMatch[1]);
+  else if (cMinusMatch) cIncVal = -parseInt(cMinusMatch[1]);
+  else if (cIncExpr.includes("--")) cIncVal = -1;
+  else if (cIncExpr.includes("++")) cIncVal = 1;
+  
+  return {
+    rStart: rStartVal,
+    cStart: cStartVal,
+    rInc: rIncVal,
+    cInc: cIncVal,
+    rCond: document.getElementById("rCond").value,
+    cCond: document.getElementById("cCond").value
+  };
+}
+
+function checkCond(expr, row, col) {
+  try {
+    // Create array reference object
+    const arr = [];
+    for (let i = 0; i < rows; i++) {
+      arr[i] = [];
+      arr[i].length = cols;
+      for (let j = 0; j < cols; j++) {
+        const inputEl = gridEls[i][j].querySelector('input');
+        const val = inputEl.value;
+        arr[i][j] = isNaN(val) || val === '' ? val : parseFloat(val);
+      }
+    }
+    arr.length = rows;
+    
+    console.log(`checkCond: expr="${expr}", row=${row}, col=${col}, arr.length=${arr.length}, arr[0].length=${arr[0]?.length}`);
+    const result = eval(expr);
+    console.log(`checkCond result: ${result}`);
+    return result;
+  } catch (e) {
+    console.error(`checkCond error: expr="${expr}", row=${row}, col=${col}, error:`, e);
+    return false;
+  }
+}
+
+function resetStepper() {
+  const cfg = evalLoopConfig();
+  r = cfg.rStart;
+  c = cfg.cStart;
+  updateHighlight();
+}
+
+function resetArray() {
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      const inputEl = gridEls[i][j].querySelector('input');
+      inputEl.value = defaultValue;
+    }
+  }
+  resetStepper();
+}
+
+function showModal(message) {
+  document.getElementById("modalMessage").textContent = message;
+  document.getElementById("modal").style.display = "block";
+}
+
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+}
+
+function nextStep() {
+  const cfg = evalLoopConfig();
+
+  // Try to advance column
+  c += cfg.cInc;
+  
+  // If column is out of bounds, reset column and advance row
+  if (!checkCond(cfg.cCond, r, c)) {
+    r += cfg.rInc;
+    c = cfg.cStart;
+  }
+
+  // Check if we've gone past the row condition or out of array bounds
+  if (!checkCond(cfg.rCond, r, c) || r < 0 || r >= rows || c < 0 || c >= cols) {
+    showModal("Out of range! Loop complete or indices out of bounds.");
+    resetStepper();
+    return;
+  }
+
+  updateHighlight();
+}
+
+function prevStep() {
+  const cfg = evalLoopConfig();
+
+  // Try to go back one column
+  c -= cfg.cInc;
+  
+  // If column went out of bounds, go to previous row's end
+  if (!checkCond(cfg.cCond, r, c)) {
+    r -= cfg.rInc;
+    // Find the last valid column in the previous row
+    c = cfg.cStart;
+    while (checkCond(cfg.cCond, r, c + cfg.cInc)) {
+      c += cfg.cInc;
+    }
+  }
+
+  // Check if we've gone before the start or out of array bounds
+  if (!checkCond(cfg.rCond, r, c) || r < 0 || r >= rows || c < 0 || c >= cols) {
+    showModal("Out of range! Cannot go back further or indices out of bounds.");
+    resetStepper();
+    return;
+  }
+
+  updateHighlight();
+}
+</script>
+
+</body>
+</html>

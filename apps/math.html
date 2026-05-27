@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Multiplication & Division Explorer</title>
+  <style>
+    body { font-family: Arial; text-align: center; background:#f4f6f8; }
+    h1 { margin: 10px; }
+    canvas { border:2px solid #333; background:white; margin-top:10px; cursor:grab; }
+    #tabs { margin-top:10px; }
+    button { padding:8px 16px; margin:5px; }
+    #info { margin-top:10px; font-size:20px; font-weight:bold; }
+  </style>
+</head>
+<body>
+
+<h1>Area Explorer</h1>
+
+<div id="tabs">
+  <button onclick="setMode('mult')">Multiplication</button>
+  <button onclick="setMode('div')">Division</button>
+</div>
+
+<div id="info"></div>
+<canvas id="grid" width="600" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("grid");
+const ctx = canvas.getContext("2d");
+
+const size = 12;
+const padding = 40;
+const gridSize = canvas.width - padding * 2;
+const cell = gridSize / size;
+
+let rect = { x: 1, y: 1 };
+let dragging = false;
+let mode = "mult";
+
+function setMode(m){ mode = m; draw(); }
+
+function snap(v){ return Math.round(v); }
+
+function drawGrid(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  let left = padding;
+  let top = padding;
+  let right = left + gridSize;
+  let bottom = top + gridSize;
+
+  ctx.strokeStyle = "#ccc";
+
+  for(let i=0;i<=size;i++){
+    let x = left + i*cell;
+    let y = top + i*cell;
+
+    // vertical
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+
+    // horizontal
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+
+    ctx.fillStyle = "black";
+
+    // x-axis labels (bottom)
+    ctx.fillText(i, x-5, bottom + 15);
+
+    // y-axis labels (0 bottom → 12 top)
+    ctx.fillText(size-i, left - 20, y+5);
+  }
+}
+
+function drawRect(){
+  let left = padding;
+  let bottom = padding + gridSize;
+
+  let width = rect.x * cell;
+  let height = rect.y * cell;
+
+  let top = bottom - height;
+
+  if(mode === "mult"){
+    ctx.fillStyle="rgba(0,150,255,0.3)";
+    ctx.strokeStyle="blue";
+  } else {
+    ctx.fillStyle="rgba(255,150,0,0.3)";
+    ctx.strokeStyle="darkorange";
+  }
+
+  ctx.fillRect(left, top, width, height);
+  ctx.strokeRect(left, top, width, height);
+
+  if(mode === "div"){
+    // strong dark brown borders for columns AND outer edges
+    ctx.strokeStyle = "#5a2d0c";
+    ctx.lineWidth = 3;
+
+    // vertical column dividers
+    for(let i=1;i<rect.x;i++){
+      let x = left + i*cell;
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, top + height);
+      ctx.stroke();
+    }
+
+    // redraw outer border stronger
+    ctx.strokeRect(left, top, width, height);
+
+    ctx.lineWidth = 1;
+  }
+}
+
+function updateInfo(){
+  if(mode === "mult"){
+    document.getElementById("info").innerText = "";
+  } else {
+    let total = rect.x * rect.y;
+    document.getElementById("info").innerText = `Total: ${total}`;
+  }
+}
+
+function handle(e){
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
+
+  let gx = snap((mx - padding) / cell);
+  let gy = snap((padding + gridSize - my) / cell);
+
+  gx = Math.max(1, Math.min(size, gx));
+  gy = Math.max(1, Math.min(size, gy));
+
+  rect.x = gx;
+  rect.y = gy;
+
+  draw();
+}
+
+canvas.addEventListener("mousedown", e=>{ dragging=true; handle(e); });
+canvas.addEventListener("mouseup", ()=> dragging=false);
+canvas.addEventListener("mousemove", e=>{ if(dragging) handle(e); });
+canvas.addEventListener("click", handle);
+
+function draw(){
+  drawGrid();
+  drawRect();
+  updateInfo();
+}
+
+ctx.font="14px Arial";
+draw();
+</script>
+
+</body>
+</html>

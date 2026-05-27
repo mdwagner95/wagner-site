@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Full Enigma Linear Visualizer</title>
+
+<style>
+    body{
+        margin:0;
+        padding:20px;
+        background:#0f172a;
+        color:white;
+        font-family:Arial, sans-serif;
+    }
+
+    h1{
+        text-align:center;
+        margin-bottom:10px;
+    }
+
+    .subtitle{
+        text-align:center;
+        color:#cbd5e1;
+        margin-bottom:30px;
+    }
+
+    .controls{
+        max-width:1000px;
+        margin:auto;
+        background:#1e293b;
+        padding:20px;
+        border-radius:16px;
+        margin-bottom:30px;
+    }
+
+    input, button{
+        width:100%;
+        padding:12px;
+        border:none;
+        border-radius:10px;
+        font-size:1rem;
+        margin-top:10px;
+    }
+
+    button{
+        background:#2563eb;
+        color:white;
+        font-weight:bold;
+        cursor:pointer;
+    }
+
+    button:hover{
+        background:#1d4ed8;
+    }
+
+    .output{
+        margin-top:15px;
+        padding:15px;
+        background:#0f172a;
+        border-radius:12px;
+        font-size:1.2rem;
+    }
+
+    .machine{
+        overflow-x:auto;
+        padding-bottom:40px;
+    }
+
+    .rotor{
+        background:#111827;
+        border-radius:18px;
+        padding:20px;
+        margin-bottom:30px;
+        border:2px solid #334155;
+    }
+
+    .rotor h2{
+        margin-top:0;
+        text-align:center;
+        color:#93c5fd;
+    }
+
+    .rows{
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        gap:35px;
+    }
+
+    .letter-row{
+        display:flex;
+        justify-content:center;
+        gap:4px;
+        position:relative;
+        z-index:2;
+    }
+
+    .letter{
+        width:32px;
+        height:32px;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        border-radius:6px;
+        background:#334155;
+        font-weight:bold;
+        transition:0.2s;
+    }
+
+    .letter.active{
+        background:#22c55e;
+        color:black;
+        transform:scale(1.2);
+        box-shadow:0 0 14px #22c55e;
+    }
+
+    svg{
+        position:absolute;
+        width:100%;
+        height:100%;
+        left:0;
+        top:0;
+        pointer-events:none;
+        z-index:1;
+    }
+
+    .reflector{
+        background:#111827;
+        border-radius:18px;
+        padding:20px;
+        margin-bottom:30px;
+        text-align:center;
+        font-size:2rem;
+        border:2px solid #334155;
+    }
+
+    .path-box{
+        max-width:1200px;
+        margin:auto;
+        background:#1e293b;
+        border-radius:16px;
+        padding:20px;
+    }
+
+    .path-title{
+        text-align:center;
+        margin-bottom:15px;
+        font-size:1.3rem;
+    }
+
+    .path{
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:center;
+        gap:10px;
+    }
+
+    .step{
+        background:#334155;
+        padding:10px 14px;
+        border-radius:10px;
+    }
+
+    .arrow{
+        font-size:1.4rem;
+        color:#60a5fa;
+    }
+
+</style>
+</head>
+<body>
+
+<h1>Full Enigma Algorithm Visualizer</h1>
+<div class="subtitle">
+Signal travels through rotors → reflector → back through rotors
+</div>
+
+<div class="controls">
+
+    <label>Message</label>
+    <input type="text" id="messageInput" placeholder="Type a message...">
+
+    <button onclick="encryptMessage()">
+        Encrypt Message
+    </button>
+
+    <div class="output">
+        <strong>Encrypted:</strong>
+        <div id="encryptedText"></div>
+    </div>
+
+</div>
+
+<div class="machine">
+
+    <!-- ROTOR 1 -->
+    <div class="rotor">
+        <h2>Rotor I</h2>
+
+        <div class="rows">
+
+            <svg id="svg1"></svg>
+
+            <!-- Alphabet row FIRST -->
+            <div class="letter-row" id="rotor1Bottom"></div>
+
+            <!-- Wiring row SECOND -->
+            <div class="letter-row" id="rotor1Top"></div>
+
+        </div>
+    </div>
+
+    <!-- ROTOR 2 -->
+    <div class="rotor">
+        <h2>Rotor II</h2>
+
+        <div class="rows">
+
+            <svg id="svg2"></svg>
+
+            <div class="letter-row" id="rotor2Bottom"></div>
+            <div class="letter-row" id="rotor2Top"></div>
+
+        </div>
+    </div>
+
+    <!-- ROTOR 3 -->
+    <div class="rotor">
+        <h2>Rotor III</h2>
+
+        <div class="rows">
+
+            <svg id="svg3"></svg>
+
+            <div class="letter-row" id="rotor3Bottom"></div>
+            <div class="letter-row" id="rotor3Top"></div>
+
+        </div>
+    </div>
+
+    <div class="reflector">
+        REFLECTOR ↺
+    </div>
+
+</div>
+
+<div class="path-box">
+
+    <div class="path-title">
+        Current Signal Path
+    </div>
+
+    <div class="path" id="pathDisplay"></div>
+
+</div>
+
+<script>
+
+const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const rotor1 = "EKMFLGDQVZNTOWYHXUSPAIBRCJ";
+const rotor2 = "AJDKSIRUXBLHWTMCQGZNPYFVOE";
+const rotor3 = "BDFHJLCPRTXVZNYEIWGAKMUSQO";
+
+const reflector = "YRUHQSLDPXNGOKMIEBFZCWVJAT";
+
+let rotorPos1 = 0;
+let rotorPos2 = 0;
+let rotorPos3 = 0;
+
+function createRotor(topId,bottomId,wiring){
+
+    const top = document.getElementById(topId);
+    const bottom = document.getElementById(bottomId);
+
+    top.innerHTML = "";
+    bottom.innerHTML = "";
+
+    for(let i=0;i<26;i++){
+
+        // Alphabet row
+        const bottomLetter = document.createElement("div");
+        bottomLetter.className = "letter";
+        bottomLetter.textContent = alphabet[i];
+        bottomLetter.id = bottomId + "_" + alphabet[i];
+
+        // Wiring row
+        const topLetter = document.createElement("div");
+        topLetter.className = "letter";
+        topLetter.textContent = wiring[i];
+        topLetter.id = topId + "_" + wiring[i];
+
+        bottom.appendChild(bottomLetter);
+        top.appendChild(topLetter);
+    }
+}
+
+createRotor("rotor1Top","rotor1Bottom",rotor1);
+createRotor("rotor2Top","rotor2Bottom",rotor2);
+createRotor("rotor3Top","rotor3Bottom",rotor3);
+
+function drawLines(svgId, topId, bottomId){
+
+    const svg = document.getElementById(svgId);
+
+    svg.innerHTML = "";
+
+    const topLetters =
+        document.querySelectorAll(`#${topId} .letter`);
+
+    const bottomLetters =
+        document.querySelectorAll(`#${bottomId} .letter`);
+
+    const parent =
+        document.getElementById(topId).parentElement;
+
+    const parentRect = parent.getBoundingClientRect();
+
+    svg.setAttribute(
+        "viewBox",
+        `0 0 ${parentRect.width} ${parentRect.height}`
+    );
+
+    for(let i=0;i<26;i++){
+
+        const topRect =
+            topLetters[i].getBoundingClientRect();
+
+        const bottomRect =
+            bottomLetters[i].getBoundingClientRect();
+
+        const x1 =
+            bottomRect.left +
+            bottomRect.width/2 -
+            parentRect.left;
+
+        const y1 =
+            bottomRect.bottom -
+            parentRect.top;
+
+        const x2 =
+            topRect.left +
+            topRect.width/2 -
+            parentRect.left;
+
+        const y2 =
+            topRect.top -
+            parentRect.top;
+
+        const line =
+            document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "line"
+            );
+
+        line.setAttribute("x1",x1);
+        line.setAttribute("y1",y1);
+
+        line.setAttribute("x2",x2);
+        line.setAttribute("y2",y2);
+
+        line.setAttribute("stroke","#64748b");
+        line.setAttribute("stroke-width","2");
+
+        svg.appendChild(line);
+    }
+}
+
+function redrawLines(){
+
+      drawLines(
+          "svg1",
+          "rotor1Top",
+          "rotor1Bottom"
+      );
+
+    drawLines(
+        "svg1",
+        "rotor1Bottom",
+        "rotor2Top"
+    );
+
+    drawLines(
+        "svg2",
+        "rotor2Top",
+        "rotor2Bottom"
+    );
+
+    drawLines(
+        "svg3",
+        "rotor3Top",
+        "rotor3Bottom"
+    );
+}
+
+setTimeout(redrawLines,100);
+
+window.addEventListener("resize",redrawLines);
+
+function clearHighlights(){
+
+    document
+        .querySelectorAll(".letter")
+        .forEach(l=>l.classList.remove("active"));
+}
+
+function activate(id){
+
+    const el = document.getElementById(id);
+
+    if(el){
+        el.classList.add("active");
+    }
+}
+
+function rotateRotors(){
+
+    rotorPos1 = (rotorPos1 + 1) % 26;
+
+    if(rotorPos1 === 0){
+
+        rotorPos2 = (rotorPos2 + 1) % 26;
+
+        if(rotorPos2 === 0){
+
+            rotorPos3 = (rotorPos3 + 1) % 26;
+        }
+    }
+}
+
+function rotorForward(char,wiring,offset){
+
+    let index =
+        (alphabet.indexOf(char) + offset) % 26;
+
+    return wiring[index];
+}
+
+function rotorBackward(char,wiring,offset){
+
+    let index = wiring.indexOf(char);
+
+    index = (index - offset + 26) % 26;
+
+    return alphabet[index];
+}
+
+function reflect(char){
+
+    return reflector[
+        alphabet.indexOf(char)
+    ];
+}
+
+function encryptLetter(letter){
+
+    clearHighlights();
+
+    const steps = [];
+
+    // FORWARD
+
+    activate("rotor1Bottom_" + letter);
+
+    let r1 =
+        rotorForward(letter,rotor1,rotorPos1);
+
+    activate("rotor1Top_" + r1);
+
+    steps.push(`${letter} → ${r1}`);
+
+    activate("rotor2Bottom_" + r1);
+
+    let r2 =
+        rotorForward(r1,rotor2,rotorPos2);
+
+    activate("rotor2Top_" + r2);
+
+    steps.push(`${r1} → ${r2}`);
+
+    activate("rotor3Bottom_" + r2);
+
+    let r3 =
+        rotorForward(r2,rotor3,rotorPos3);
+
+    activate("rotor3Top_" + r3);
+
+    steps.push(`${r2} → ${r3}`);
+
+    // REFLECT
+
+    let reflected = reflect(r3);
+
+    steps.push(`Reflect ${r3} → ${reflected}`);
+
+    // BACKWARD
+
+    let b1 =
+        rotorBackward(
+            reflected,
+            rotor3,
+            rotorPos3
+        );
+
+    activate("rotor3Top_" + reflected);
+    activate("rotor3Bottom_" + b1);
+
+    steps.push(`${reflected} → ${b1}`);
+
+    let b2 =
+        rotorBackward(
+            b1,
+            rotor2,
+            rotorPos2
+        );
+
+    activate("rotor2Top_" + b1);
+    activate("rotor2Bottom_" + b2);
+
+    steps.push(`${b1} → ${b2}`);
+
+    let b3 =
+        rotorBackward(
+            b2,
+            rotor1,
+            rotorPos1
+        );
+
+    activate("rotor1Top_" + b2);
+    activate("rotor1Bottom_" + b3);
+
+    steps.push(`${b2} → ${b3}`);
+
+    document.getElementById(
+        "pathDisplay"
+    ).innerHTML =
+        steps.map((s,i)=>
+            `<div class="step">${s}</div>${
+                i < steps.length-1
+                ? '<div class="arrow">→</div>'
+                : ''
+            }`
+        ).join("");
+
+    rotateRotors();
+
+    return b3;
+}
+
+function encryptMessage(){
+
+    rotorPos1 = 0;
+    rotorPos2 = 0;
+    rotorPos3 = 0;
+
+    const msg =
+        document.getElementById("messageInput")
+        .value
+        .toUpperCase()
+        .replace(/[^A-Z]/g,'');
+
+    let output = "";
+
+    for(let c of msg){
+
+        output += encryptLetter(c);
+    }
+
+    document.getElementById(
+        "encryptedText"
+    ).textContent = output;
+}
+
+</script>
+
+</body>
+</html>

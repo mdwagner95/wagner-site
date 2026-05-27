@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coordinate Shape Builder — Transformations</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+body {
+  font-family: Arial, sans-serif;
+  display: flex;
+  gap: 24px;
+  padding: 20px;
+  background: #f6f8fb;
+}
+#left {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:360px;
+}
+textarea {
+  width:100%;
+  height:120px;
+  font-family: monospace;
+  font-size:14px;
+  padding:8px;
+}
+button { padding:6px 10px; font-size:14px; cursor:pointer; }
+#graphWrapper { position:relative; }
+canvas { background:white; border:1px solid #222; }
+#levelInfo { font-weight:700; font-size:18px; }
+#nextBtn { display:none; background:#16a34a; color:white; border:none; border-radius:6px; }
+
+.transform-section {
+  border:1px solid #ccc;
+  padding:6px;
+  border-radius:6px;
+  background:#fdfdfd;
+  margin-bottom:6px;
+}
+.transform-options {
+  display:flex;
+  gap:6px;
+  margin-top:4px;
+}
+input[type="number"] {
+  width:50px;
+}
+.toggle-btn {
+  padding:4px 8px;
+  border:1px solid #aaa;
+  border-radius:4px;
+  cursor:pointer;
+  background:#eee;
+}
+.toggle-btn.active {
+  background:#36c;
+  color:white;
+}
+
+/* NEW — translation formula text */
+#translateFormula {
+  font-size: 13px;
+  margin-top: 4px;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+
+<div id="left">
+  <div id="levelInfo">Level 1 / 10</div>
+  <div id="hint">Enter one point per line as: <code>(x,y)</code></div>
+
+  <textarea id="coordsInput" placeholder="Example:
+(1,1)
+(5,1)
+(5,5)
+(1,5)"></textarea>
+
+  <div class="transform-section">
+    <div><strong>Transform:</strong></div>
+
+    <!-- ✓ NEW: None option -->
+    <div>
+      <input type="radio" name="transform" id="noneRad" checked>
+      <label for="noneRad">None</label>
+
+      <input type="radio" name="transform" id="translateRad">
+      <label for="translateRad">Translate</label>
+
+      <input type="radio" name="transform" id="rotateRad">
+      <label for="rotateRad">Rotate</label>
+
+      <input type="radio" name="transform" id="reflectRad">
+      <label for="reflectRad">Reflect</label>
+    </div>
+
+    <!-- TRANSLATION -->
+    <div id="translateControls" class="transform-options" style="display:none;">
+      dx: <input type="number" id="dxInput" value="5">
+      dy: <input type="number" id="dyInput" value="3">
+    </div>
+
+    <!-- ✓ NEW: Translation formula -->
+    <div id="translateFormula" style="display:none;">
+      (x + dx, y + dy)
+    </div>
+
+    <!-- ROTATIONS — UPDATED TO FINAL-FORMULA ONLY -->
+    <div id="rotateControls" class="transform-options" style="display:none;">
+      <div class="toggle-btn" data-angle="90">90° <br> (y, -x)</div>
+      <div class="toggle-btn" data-angle="180">180° <br> (-x, -y)</div>
+      <div class="toggle-btn" data-angle="270">270° <br> (-y, x)</div>
+    </div>
+
+    <!-- REFLECTIONS — unchanged except formatting -->
+    <div id="reflectControls" class="transform-options" style="display:none;">
+      <div class="toggle-btn" data-axis="x">Reflect x-axis <br> (x, -y)</div>
+      <div class="toggle-btn" data-axis="y">Reflect y-axis <br> (-x, y)</div>
+    </div>
+  </div>
+
+  <textarea id="studentShapeInput" placeholder="Try your own shape (purple)..."></textarea>
+
+  <div style="display:flex;gap:8px">
+    <button id="drawBtn">Draw Shape</button>
+    <button id="clearBtn">Clear</button>
+    <button id="nextBtn">Next Level</button>
+  </div>
+</div>
+
+<div id="graphWrapper">
+  <canvas id="graph" width="640" height="640"></canvas>
+</div>
+
+<script>
+/* EVERYTHING BELOW IS THE SAME EXCEPT FOR:
+   • None radio behavior
+   • Showing/hiding translation formula
+   • Suppressing shadow shape when None selected
+*/
+
+const levels = [
+  [[1,1],[5,1],[8,5],[1,5]],
+  [[6,2],[10,2],[8,6]],
+  [[3,3],[7,7],[11,3],[7,-1]],
+  [[2,4],[10,4],[10,8],[2,8]],
+  [[5,1],[7,4],[10,4],[12,1],[10,-2],[7,-2]],
+  [[1,6],[6,6],[6,10],[1,10],[3,8]],
+  [[4,4],[6,8],[8,4],[6,0]],
+  [[5,5],[10,5],[7,10]],
+  [[2,2],[2,7],[7,7],[7,2]],
+  [[3,1],[5,3],[7,1],[5,-1]]
+];
+let currentLevel = 0;
+const TOLERANCE = 0.7;
+
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const CANVAS_SIZE = 640;
+const MARGIN = 40;
+const ACTIVE = CANVAS_SIZE - MARGIN*2;
+const GRID_MIN = -15;
+const GRID_MAX = 15;
+const GRID_UNITS = GRID_MAX - GRID_MIN;
+const SCALE = ACTIVE / GRID_UNITS;
+
+function gx(x){ return MARGIN + (x - GRID_MIN) * SCALE; }
+function gy(y){ return MARGIN + (GRID_MAX - y) * SCALE; }
+
+const coordsInput = document.getElementById('coordsInput');
+const studentShapeInput = document.getElementById('studentShapeInput');
+
+const dxInput = document.getElementById('dxInput');
+const dyInput = document.getElementById('dyInput');
+
+const drawBtn = document.getElementById('drawBtn');
+const clearBtn = document.getElementById('clearBtn');
+const nextBtn = document.getElementById('nextBtn');
+const levelInfo = document.getElementById('levelInfo');
+
+const noneRad = document.getElementById('noneRad');
+const translateRad = document.getElementById('translateRad');
+const rotateRad = document.getElementById('rotateRad');
+const reflectRad = document.getElementById('reflectRad');
+
+const translateControls = document.getElementById('translateControls');
+const translateFormula = document.getElementById('translateFormula');
+const rotateControls = document.getElementById('rotateControls');
+const reflectControls = document.getElementById('reflectControls');
+
+let activeRotateAngle = null;
+let activeReflectAxis = null;
+
+// --- DRAWING ---
+function drawGrid(){
+  ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#e6e9ee';
+  ctx.font = "12px Arial";
+  ctx.fillStyle = '#111';
+  ctx.textAlign = 'center';
+
+  for(let x = GRID_MIN; x <= GRID_MAX; x++){
+    const px = gx(x);
+    ctx.beginPath();
+    ctx.moveTo(px, MARGIN);
+    ctx.lineTo(px, MARGIN + ACTIVE);
+    ctx.strokeStyle = (x===0) ? '#111' : '#e6e9ee';
+    ctx.lineWidth = (x===0) ? 2 : 1;
+    ctx.stroke();
+
+    if(x % 5 === 0) ctx.fillText(String(x), px, MARGIN - 14);
+  }
+
+  ctx.textAlign = 'right';
+  for(let y = GRID_MIN; y <= GRID_MAX; y++){
+    const py = gy(y);
+    ctx.beginPath();
+    ctx.moveTo(MARGIN, py);
+    ctx.lineTo(MARGIN + ACTIVE, py);
+    ctx.strokeStyle = (y===0) ? '#111' : '#e6e9ee';
+    ctx.lineWidth = (y===0) ? 2 : 1;
+    ctx.stroke();
+
+    if(y % 5 === 0) ctx.fillText(String(y), MARGIN - 8, py + 4);
+  }
+}
+
+function drawShape(pts, strokeColor="blue", fillColor=null, dashed=false){
+  if(!pts || pts.length === 0) return;
+  ctx.save();
+  if(dashed) ctx.setLineDash([5,5]);
+  ctx.beginPath();
+  ctx.moveTo(gx(pts[0][0]), gy(pts[0][1]));
+  for(let i=1;i<pts.length;i++){
+    ctx.lineTo(gx(pts[i][0]), gy(pts[i][1]));
+  }
+  ctx.closePath();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  if(fillColor && pts.length >=3){
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawTarget(){
+  const pts = levels[currentLevel];
+  drawShape(pts, "lightgray", "rgba(200,200,200,0.25)", false);
+  pts.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(gx(p[0]), gy(p[1]), 4, 0, 2*Math.PI);
+    ctx.fillStyle = "gray";
+    ctx.fill();
+  });
+}
+
+function drawPoints(pts, color){
+  pts.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(gx(p[0]), gy(p[1]), 5, 0, 2*Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+  });
+}
+
+function drawUser(pts, color='blue', fillAlpha=0.15, dotted=false){
+  if(!pts || pts.length === 0) return;
+  drawPoints(pts, color);
+
+  if(pts.length >= 3){
+    ctx.save();
+    if(dotted) ctx.setLineDash([5,5]);
+    ctx.beginPath();
+    ctx.moveTo(gx(pts[0][0]), gy(pts[0][1]));
+    for(let i=1;i<pts.length;i++){
+      ctx.lineTo(gx(pts[i][0]), gy(pts[i][1]));
+    }
+    ctx.closePath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = `rgba(${color==='purple'?128:3},${color==='purple'?0:102},${color==='purple'?128:214},${fillAlpha})`;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// --- PARSE ---
+function parsePoints(text){
+  const lines = text.trim().split('\n');
+  const pts = [];
+  for(const raw of lines){
+    const line = raw.trim();
+    if(!line) continue;
+    const m = line.match(/^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/);
+    if(!m) continue;
+    pts.push([parseFloat(m[1]), parseFloat(m[2])]);
+  }
+  return pts;
+}
+
+// --- TRANSFORMS ---
+function applyTransform(pts){
+  if(!pts) return [];
+
+  if(noneRad.checked){
+    return pts; // no transform AND suppress shadow
+  }
+
+  if(translateRad.checked){
+    const dx = parseFloat(dxInput.value)||0;
+    const dy = parseFloat(dyInput.value)||0;
+    return pts.map(p=>[p[0]+dx, p[1]+dy]);
+  }
+
+  if(rotateRad.checked && activeRotateAngle){
+    const a = parseInt(activeRotateAngle);
+    if(a===90) return pts.map(p=>[p[1], -p[0]]);
+    if(a===180) return pts.map(p=>[-p[0], -p[1]]);
+    if(a===270) return pts.map(p=>[-p[1], p[0]]);
+  }
+
+  if(reflectRad.checked && activeReflectAxis){
+    if(activeReflectAxis==='x') return pts.map(p=>[p[0], -p[1]]);
+    if(activeReflectAxis==='y') return pts.map(p=>[-p[0], p[1]]);
+  }
+
+  return pts;
+}
+
+function close(a,b,tol=TOLERANCE){ return Math.abs(a-b)<=tol; }
+function polygonsEqualIgnoreOrder(A,B){
+  if(A.length !== B.length) return false;
+  const n=A.length;
+  for(let s=0; s<n; s++){
+    let f=true, r=true;
+    for(let i=0;i<n;i++){
+      if(!close(A[i][0], B[(i+s)%n][0]) || !close(A[i][1], B[(i+s)%n][1])) f=false;
+      if(!close(A[i][0], B[(s-i+n)%n][0]) || !close(A[i][1], B[(s-i+n)%n][1])) r=false;
+    }
+    if(f||r) return true;
+  }
+  return false;
+}
+
+function updateCanvas(){
+  drawGrid();
+  drawTarget();
+
+  const pts = parsePoints(coordsInput.value);
+  drawUser(pts, 'blue');
+
+  // SHADOW? Only if transform ≠ None
+  if(!noneRad.checked){
+    const shadow = applyTransform(pts);
+    if(shadow.length>0) drawUser(shadow, 'gray', 0, true);
+  }
+
+  const studentPts = parsePoints(studentShapeInput.value);
+  drawUser(studentPts, 'purple', 0.15);
+
+  const t = levels[currentLevel];
+  if(pts.length===t.length && polygonsEqualIgnoreOrder(pts,t)){
+    nextBtn.style.display='inline-block';
+  } else {
+    nextBtn.style.display='none';
+  }
+}
+
+// --- EVENT LISTENERS ---
+coordsInput.addEventListener('input', updateCanvas);
+studentShapeInput.addEventListener('input', updateCanvas);
+dxInput.addEventListener('input', updateCanvas);
+dyInput.addEventListener('input', updateCanvas);
+
+drawBtn.addEventListener('click', updateCanvas);
+clearBtn.addEventListener('click', ()=>{
+  coordsInput.value='';
+  studentShapeInput.value='';
+  nextBtn.style.display='none';
+  updateCanvas();
+});
+nextBtn.addEventListener('click', ()=>{
+  currentLevel = (currentLevel+1) % levels.length;
+  levelInfo.textContent = `Level ${currentLevel+1} / ${levels.length}`;
+  coordsInput.value='';
+  studentShapeInput.value='';
+  nextBtn.style.display='none';
+  updateCanvas();
+});
+
+/* --- SHOW/HIDE transform sections --- */
+noneRad.addEventListener('change', ()=>{
+  translateControls.style.display='none';
+  translateFormula.style.display='none';
+  rotateControls.style.display='none';
+  reflectControls.style.display='none';
+  activeRotateAngle=null;
+  activeReflectAxis=null;
+  updateCanvas();
+});
+
+translateRad.addEventListener('change', ()=>{
+  translateControls.style.display='flex';
+  translateFormula.style.display='block';
+  rotateControls.style.display='none';
+  reflectControls.style.display='none';
+  activeRotateAngle=null;
+  activeReflectAxis=null;
+  updateCanvas();
+});
+
+rotateRad.addEventListener('change', ()=>{
+  translateControls.style.display='none';
+  translateFormula.style.display='none';
+  rotateControls.style.display='flex';
+  reflectControls.style.display='none';
+  activeReflectAxis=null;
+  updateCanvas();
+});
+
+reflectRad.addEventListener('change', ()=>{
+  translateControls.style.display='none';
+  translateFormula.style.display='none';
+  rotateControls.style.display='none';
+  reflectControls.style.display='flex';
+  activeRotateAngle=null;
+  updateCanvas();
+});
+
+/* --- ROTATE buttons --- */
+document.querySelectorAll('#rotateControls .toggle-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#rotateControls .toggle-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeRotateAngle = btn.dataset.angle;
+    updateCanvas();
+  });
+});
+
+/* --- REFLECT buttons --- */
+document.querySelectorAll('#reflectControls .toggle-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#reflectControls .toggle-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeReflectAxis = btn.dataset.axis;
+    updateCanvas();
+  });
+});
+
+/* INIT */
+levelInfo.textContent = `Level ${currentLevel+1} / ${levels.length}`;
+updateCanvas();
+</script>
+
+</body>
+</html>

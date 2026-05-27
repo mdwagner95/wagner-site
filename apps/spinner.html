@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Custom Spinner</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+    }
+
+    canvas {
+        background: white;
+        border-radius: 50%;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        margin-bottom: 15px;
+    }
+
+    textarea {
+        width: 320px;
+        height: 120px;
+        margin-bottom: 10px;
+        font-family: monospace;
+        font-size: 14px;
+    }
+
+    button {
+        padding: 10px 18px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .note {
+        font-size: 14px;
+        color: #444;
+        margin-bottom: 5px;
+    }
+</style>
+</head>
+<body>
+
+<h2>Custom Spinner</h2>
+
+<canvas id="wheel" width="400" height="400"></canvas>
+
+<div class="note">
+Format: <code>Label,Percentage</code> (percentages should add to 100)
+</div>
+
+<textarea id="data">
+Win,40
+Lose,30
+Bonus,20
+Retry,10
+</textarea>
+
+<button onclick="spin()">Spin</button>
+
+<script>
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+
+let rotation = 0;
+let spinning = false;
+
+/* High-contrast, fixed palette */
+const COLORS = [
+    "#e63946", // red
+    "#457b9d", // blue
+    "#2a9d8f", // teal
+    "#f4a261", // orange
+    "#9b5de5", // purple
+    "#43aa8b", // green
+    "#f72585", // pink
+    "#577590"  // slate
+];
+
+function getData() {
+    return document.getElementById("data")
+        .value
+        .trim()
+        .split("\n")
+        .map((line, i) => {
+            const [label, value] = line.split(",");
+            return {
+                label: label.trim(),
+                value: Number(value),
+                color: COLORS[i % COLORS.length]
+            };
+        });
+}
+
+function drawWheel(data, angleOffset = 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const total = data.reduce((a, b) => a + b.value, 0);
+    let startAngle = Math.PI + angleOffset; // upside down
+
+    data.forEach(item => {
+        const sliceAngle = (item.value / total) * Math.PI * 2;
+
+        ctx.beginPath();
+        ctx.moveTo(200, 200);
+        ctx.arc(200, 200, 180, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        ctx.fillStyle = item.color;
+        ctx.fill();
+
+        // Label text
+        ctx.save();
+        ctx.translate(200, 200);
+        ctx.rotate(startAngle + sliceAngle / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 20px Arial"; // ⬅ bigger text
+        ctx.fillText(item.label, 160, 8);
+        ctx.restore();
+
+        startAngle += sliceAngle;
+    });
+
+    // Pointer (upside-down triangle)
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.moveTo(190, 390);
+    ctx.lineTo(210, 390);
+    ctx.lineTo(200, 360);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function spin() {
+    if (spinning) return;
+    spinning = true;
+
+    const data = getData();
+    let speed = Math.random() * 0.3 + 0.35;
+    const deceleration = 0.005;
+
+    function animate() {
+        rotation += speed;
+        speed -= deceleration;
+
+        drawWheel(data, rotation);
+
+        if (speed > 0) {
+            requestAnimationFrame(animate);
+        } else {
+            spinning = false;
+        }
+    }
+
+    animate();
+}
+
+// Initial draw
+drawWheel(getData());
+</script>
+
+</body>
+</html>
