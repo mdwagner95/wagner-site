@@ -961,7 +961,7 @@ canvas {
 
       pkt.path = bfsPath(routerIdx, pkt.destRouter);
       if (!pkt.path || pkt.path.length < 2) {
-        pkt.anim += dt * 5;
+        pkt.anim += dt * 2;
         remaining.push(pkt);
         return;
       }
@@ -1322,7 +1322,7 @@ canvas {
     const dt = Math.min(0.05, (ts - lastTime) / 1000 || 0.016);
     lastTime = ts;
     routers.forEach(r => {
-      r.queue.forEach(pkt => { pkt.anim += dt * 4; });
+      r.queue.forEach(pkt => { pkt.anim += dt * 0.01; });
     });
     updatePackets(dt);
     updateParticles(dt);
