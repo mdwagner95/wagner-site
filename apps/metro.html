@@ -61,6 +61,67 @@ button.tool.active {
   border-color: #1a6b8a;
 }
 button.tool:hover:not(.active) { background: #2d3f55; }
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #243044;
+  border: 1px solid #3d4f66;
+  border-radius: 999px;
+  transition: 0.25s;
+}
+
+.slider:before {
+  content: "";
+  position: absolute;
+  height: 22px;
+  width: 22px;
+  left: 2px;
+  top: 2px;
+  background: #c8d6e5;
+  border-radius: 50%;
+  transition: 0.25s;
+}
+
+input:checked + .slider {
+  background: #1a6b8a;
+  border-color: #1a6b8a;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+  background: white;
+}
+
+.status {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #9fb3c8;
+}
 #mainRow {
   flex: 1;
   display: flex;
@@ -190,6 +251,14 @@ canvas {
   <button class="tool active" id="drawBtn" type="button">Add link</button>
   <button class="tool" id="eraseBtn" type="button">Remove link</button>
   <button class="tool" id="resetBtn" type="button">New topology</button>
+  <div class="toggle-container">
+    <span class="toggle-label">Hard Mode:</span>
+  
+    <label class="switch">
+      <input type="checkbox" id="hardModeToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
 </div>
 
 <div id="mainRow">
@@ -219,6 +288,7 @@ canvas {
   const LINK_COLOR = "#5a9fd4";
   const LINK_DOWN_COLOR = "rgba(90, 45, 45, 0.35)";
   const MAX_LOG_ENTRIES = 80;
+  let OUTAGE_MODE = false;
   const OUTAGE_WAIT_MIN = 10;
   const OUTAGE_WAIT_MAX = 15;
   const OUTAGE_BLINK_TIME = 3;
@@ -332,7 +402,7 @@ canvas {
       routers.map(r =>
         `<span class="entry"><span class="swatch" style="background:${r.color}"></span>${r.name}</span>`
       ).join("") +
-      "<br><span style='color:#8899aa'>Score% = (200÷avg − cables) × fault tol% − 5 per failed<br>Random cable blinks red → goes down 20s every 15–25s</span>";
+      "<br><span style='color:#8899aa'>Score = (130 - maxDist×10 − cables) × fault tol% − 5 per failed<br>Random cable blinks red → goes down 20s every 15–25s</span>";
   }
 
   function countInFlight() {
@@ -398,13 +468,13 @@ canvas {
   }
 
   function computeScore() {
-    const avgCable = averageDistanceWindow();
+    const maxDist = computeMaxDistance();
     const cableNum = links.length;
     const faultPercent = links.length ? computeFaultTolerance() : 0;
     let raw = 100;
 
-    if (avgCable !== null && avgCable > 0) {
-      raw = (200 / avgCable - cableNum) * (faultPercent / 100);
+    if (maxDist !== null && maxDist > 0) {
+      raw = (130 - maxDist*10 - cableNum) * (faultPercent / 100);
     } else {
         raw = 0;
     }
@@ -702,7 +772,8 @@ canvas {
   }
 
   function updateOutageSimulation(dt) {
-    if (links.length === 0) {
+    console.log(OUTAGE_MODE);
+    if (!OUTAGE_MODE || (links.length === 0 || !isNetworkConnected())) {
       outage.phase = "wait";
       outage.linkIndex = -1;
       outage.timer = randOutageWait();
@@ -1310,6 +1381,10 @@ canvas {
   document.getElementById("resetBtn").addEventListener("click", () => {
     initGame();
     toast("New topology");
+  });
+  document.getElementById("hardModeToggle").addEventListener("change", () => {
+    OUTAGE_MODE = document.getElementById("hardModeToggle").checked;
+    console.log(OUTAGE_MODE)
   });
 
   window.addEventListener("resize", () => {
