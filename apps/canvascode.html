@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rect Code Drawer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 20px;
+      background-color: #f0f0f0;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background-color: white;
+      margin-top: 10px;
+    }
+
+    #controls {
+      margin-top: 10px;
+    }
+
+    textarea {
+      width: 320px;
+      height: 120px;
+      padding: 8px;
+      font-size: 16px;
+      font-family: monospace;
+      resize: none;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #error {
+      color: red;
+      margin-top: 5px;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+  <h1>Rect Code Drawer</h1>
+  <p>Type your code below (example: <code>Rect(50, 50, 60, 70)</code>) — one per line</p>
+
+  <div id="controls">
+    <textarea id="codeInput" placeholder="Rect(x, y, width, height)"></textarea><br>
+    <button id="runBtn">Run</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+
+  <p id="error"></p>
+
+  <canvas id="canvas" width="460" height="460"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const gridSize = 40;
+    const drawArea = { x: 40, y: 40, size: 400 };
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "black";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Outer box
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(drawArea.x, drawArea.y, drawArea.size, drawArea.size);
+
+      // Vertical grid + labels
+      for (let i = 0; i <= 400; i += gridSize) {
+        const x = drawArea.x + i;
+        ctx.beginPath();
+        ctx.moveTo(x, drawArea.y);
+        ctx.lineTo(x, drawArea.y + drawArea.size);
+        ctx.strokeStyle = "#ddd";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillText(i, x, drawArea.y - 15);
+      }
+
+      // Horizontal grid + labels
+      for (let j = 0; j <= 400; j += gridSize) {
+        const y = drawArea.y + j;
+        ctx.beginPath();
+        ctx.moveTo(drawArea.x, y);
+        ctx.lineTo(drawArea.x + drawArea.size, y);
+        ctx.strokeStyle = "#ddd";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillText(j, drawArea.x - 20, y);
+      }
+    }
+
+    function drawRect(x, y, w, h) {
+      ctx.fillStyle = "black";
+      ctx.fillRect(drawArea.x + x, drawArea.y + y, w, h);
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(drawArea.x + x, drawArea.y + y, w, h);
+    }
+
+    document.getElementById("runBtn").addEventListener("click", () => {
+      const lines = document.getElementById("codeInput").value.trim().split("\n");
+      const errorBox = document.getElementById("error");
+      errorBox.textContent = "";
+
+      drawGrid();
+
+      const invalidLines = [];
+
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return; // skip empty lines
+        const match = /^Rect\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/.exec(trimmed);
+        if (!match) {
+          invalidLines.push(`Line ${index + 1}: "${trimmed}"`);
+          return;
+        }
+
+        const [, x, y, w, h] = match.map(Number);
+        drawRect(x, y, w, h);
+      });
+
+      if (invalidLines.length > 0) {
+        errorBox.textContent = "Invalid lines:\n" + invalidLines.join("\n");
+      }
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      document.getElementById("codeInput").value = "";
+      document.getElementById("error").textContent = "";
+      drawGrid();
+    });
+
+    drawGrid();
+  </script>
+</body>
+</html>

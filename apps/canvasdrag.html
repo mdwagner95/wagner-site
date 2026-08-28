@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rect Trainer Pro</title>
+<style>
+body {
+  font-family: sans-serif;
+  text-align: center;
+  margin-top: 20px;
+}
+#canvasContainer {
+  position: relative;
+  display: inline-block;
+}
+canvas {
+  border: 2px solid #000;
+  cursor: crosshair;
+}
+#levelText {
+  font-size: 18px;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+#codeText {
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+#targetText {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #555;
+}
+.green { color: green; }
+.red { color: red; }
+#status {
+  font-weight: bold;
+  margin-top: 10px;
+}
+#nextBtn {
+  display: none;
+  margin-top: 10px;
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+}
+#traceToggleBtn {
+  margin-bottom: 10px;
+  padding: 6px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+#traceToggleBtn.on {
+  background: #f1c40f;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<h2>Match the Rectangle</h2>
+<div id="levelText">Level 1 / 10</div>
+<div id="codeText"></div>
+<div id="targetText"></div>
+<button id="traceToggleBtn">🧭 Tracing: Off</button>
+<div id="canvasContainer">
+  <canvas id="canvas" width="450" height="450"></canvas>
+</div>
+<div id="status"></div>
+<button id="nextBtn">Next Level ➡️</button>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const codeText = document.getElementById("codeText");
+const targetText = document.getElementById("targetText");
+const statusText = document.getElementById("status");
+const nextBtn = document.getElementById("nextBtn");
+const levelText = document.getElementById("levelText");
+const traceToggleBtn = document.getElementById("traceToggleBtn");
+
+const offsetX = 40; // left margin for y labels
+const offsetY = 40; // top margin for x labels
+const gridSize = 40;
+const activeSize = 400; // actual interactive area
+
+const HANDLE_SIZE = 10;
+
+// Levels
+const levels = [
+  {x: 120, y: 80, w: 80, h: 120},
+  {x: 200, y: 120, w: 40, h: 80},
+  {x: 200, y: 200, w: 100, h: 100},
+  {x: 60, y: 60, w: 100, h: 140},
+  {x: 0, y: 60, w: 80, h: 120},
+  {x: 120, y: 200, w: 10, h: 110},
+  {x: 60, y: 0, w: 130, h: 20},
+  {x: 0, y: 0, w: 300, h: 120},
+  {x: 40, y: 40, w: 320, h: 320},
+  {x: 380, y: 380, w: 20, h: 20},
+];
+let currentLevel = 0;
+let target = {...levels[currentLevel]};
+
+// User rectangle
+let rect = {x: 40, y: 40, w: 80, h: 120};
+let dragging = false;
+let resizing = false;
+let dragOffsetX, dragOffsetY;
+let readyForNext = false;
+let tracingEnabled = false;
+
+traceToggleBtn.addEventListener("click", () => {
+  tracingEnabled = !tracingEnabled;
+  traceToggleBtn.textContent = `🧭 Tracing: ${tracingEnabled ? "On" : "Off"}`;
+  traceToggleBtn.classList.toggle("on", tracingEnabled);
+});
+
+// Draw grid + labels
+function drawGrid() {
+  ctx.strokeStyle = "#ccc";
+  ctx.lineWidth = 1;
+  ctx.font = "12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  // vertical lines + top labels
+  for (let x = 0; x <= activeSize; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(offsetX + x, offsetY);
+    ctx.lineTo(offsetX + x, offsetY + activeSize);
+    ctx.stroke();
+    ctx.fillStyle = "#000";
+    ctx.fillText(x, offsetX + x, 5);
+  }
+
+  // horizontal lines + left labels
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let y = 0; y <= activeSize; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(offsetX, offsetY + y);
+    ctx.lineTo(offsetX + activeSize, offsetY + y);
+    ctx.stroke();
+    ctx.fillStyle = "#000";
+    ctx.fillText(y, offsetX - 5, offsetY + y);
+  }
+}
+
+// Draw rectangle and handles
+function getCorners(r) {
+  return [
+    {name: "tl", x: r.x, y: r.y},
+    {name: "tr", x: r.x + r.w, y: r.y},
+    {name: "bl", x: r.x, y: r.y + r.h},
+    {name: "br", x: r.x + r.w, y: r.y + r.h},
+  ];
+}
+
+function drawHandles() {
+  const corners = getCorners(rect);
+  const tl = corners.find(c => c.name === "tl");
+  const br = corners.find(c => c.name === "br");
+
+  // Move handle (top-left) - visually distinct from the resize handle
+  ctx.fillStyle = "#2ecc71";
+  ctx.strokeStyle = "#1e8449";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(offsetX + tl.x, offsetY + tl.y, HANDLE_SIZE/2 + 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Resize handle (bottom-right)
+  ctx.fillStyle = "blue";
+  ctx.fillRect(offsetX + br.x - HANDLE_SIZE/2, offsetY + br.y - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGrid();
+
+  // Player rect
+  ctx.fillStyle = "rgba(135,206,250,0.4)";
+  ctx.fillRect(offsetX + rect.x, offsetY + rect.y, rect.w, rect.h);
+  ctx.strokeStyle = "blue";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(offsetX + rect.x, offsetY + rect.y, rect.w, rect.h);
+
+  drawHandles();
+
+  if (tracingEnabled && dragging) drawMoveTrace();
+  if (tracingEnabled && resizing) drawResizeTrace();
+
+  updateCodeDisplay();
+}
+
+// Tracing: shows the math behind a move or resize while it's happening
+function drawMoveTrace() {
+  const px = offsetX + rect.x;
+  const py = offsetY + rect.y;
+
+  ctx.save();
+  ctx.strokeStyle = "#e67e22";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+
+  // vertical line up to the top of the canvas -> x position
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px, 0);
+  ctx.stroke();
+
+  // horizontal line to the left of the canvas -> y position
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(0, py);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#e67e22";
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(`x = ${Math.round(rect.x)}`, px, 24);
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(`y = ${Math.round(rect.y)}`, 4, py - 4);
+  ctx.restore();
+}
+
+function drawResizeTrace() {
+  const leftX = offsetX + rect.x;
+  const rightX = offsetX + rect.x + rect.w;
+  const topY = offsetY + rect.y;
+  const bottomY = offsetY + rect.y + rect.h;
+  const gap = 16;
+  const widthColor = "#8e44ad";  // purple
+  const heightColor = "#e74c3c"; // red
+
+  // ---- width: reference lines up to the top + dimension bar below the rect ----
+  ctx.save();
+  ctx.strokeStyle = widthColor;
+  ctx.fillStyle = widthColor;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+
+  const wLineY = bottomY + gap;
+  ctx.beginPath();
+  ctx.moveTo(leftX, topY);
+  ctx.lineTo(leftX, 0);
+  ctx.moveTo(rightX, topY);
+  ctx.lineTo(rightX, 0);
+  ctx.moveTo(leftX, bottomY);
+  ctx.lineTo(leftX, wLineY);
+  ctx.moveTo(rightX, bottomY);
+  ctx.lineTo(rightX, wLineY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(leftX, wLineY);
+  ctx.lineTo(rightX, wLineY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(`${Math.round(rect.x)}`, leftX + 6, 24);
+  ctx.fillText(`${Math.round(rect.x + rect.w)}`, rightX + 6, 24);
+  ctx.fillText(
+    `${Math.round(rect.x + rect.w)} - ${Math.round(rect.x)} = ${Math.round(rect.w)}`,
+    (leftX + rightX) / 2, wLineY + 4
+  );
+  ctx.restore();
+
+  // ---- height: reference lines left to the edge + dimension bar right of the rect ----
+  ctx.save();
+  ctx.strokeStyle = heightColor;
+  ctx.fillStyle = heightColor;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+
+  const hLineX = rightX + gap;
+  ctx.beginPath();
+  ctx.moveTo(leftX, topY);
+  ctx.lineTo(0, topY);
+  ctx.moveTo(leftX, bottomY);
+  ctx.lineTo(0, bottomY);
+  ctx.moveTo(rightX, topY);
+  ctx.lineTo(hLineX, topY);
+  ctx.moveTo(rightX, bottomY);
+  ctx.lineTo(hLineX, bottomY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hLineX, topY);
+  ctx.lineTo(hLineX, bottomY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(`${Math.round(rect.y)}`, 4, topY - 4);
+  ctx.fillText(`${Math.round(rect.y + rect.h)}`, 4, bottomY - 4);
+
+  ctx.save();
+  ctx.translate(hLineX + 4, (topY + bottomY) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(
+    `${Math.round(rect.y + rect.h)} - ${Math.round(rect.y)} = ${Math.round(rect.h)}`,
+    0, 10
+  );
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function updateCodeDisplay() {
+  levelText.textContent = `Level ${currentLevel+1} / ${levels.length}`;
+
+  function colored(val, targetVal) {
+    const diff = Math.abs(val - targetVal);
+    const cls = diff <= 5 ? "green" : "red";
+    return `<span class="${cls}">${Math.round(val)}</span>`;
+  }
+  codeText.innerHTML =
+    `Rect(${colored(rect.x, target.x)}, ${colored(rect.y, target.y)}, ` +
+    `${colored(rect.w, target.w)}, ${colored(rect.h, target.h)})`;
+  targetText.textContent = `🎯 Target Code: Rect(${target.x}, ${target.y}, ${target.w}, ${target.h})`;
+
+  const dx = Math.abs(rect.x - target.x);
+  const dy = Math.abs(rect.y - target.y);
+  const dw = Math.abs(rect.w - target.w);
+  const dh = Math.abs(rect.h - target.h);
+
+  if (dx <=5 && dy <=5 && dw <=5 && dh <=5) {
+    statusText.textContent = "✅ Correct!";
+    readyForNext = true;
+    nextBtn.style.display = "inline-block";
+  } else {
+    statusText.textContent = "❌ Keep adjusting!";
+    readyForNext = false;
+    nextBtn.style.display = "none";
+  }
+}
+
+// Drag & resize - only the top-left corner moves the rect, only the
+// bottom-right corner resizes it.
+const HANDLE_HIT_SIZE = HANDLE_SIZE + 6; // slightly bigger than the drawn handle for easier grabbing
+
+function isOverHandle(mx, my, px, py) {
+  return mx >= offsetX + px - HANDLE_HIT_SIZE/2 && mx <= offsetX + px + HANDLE_HIT_SIZE/2 &&
+         my >= offsetY + py - HANDLE_HIT_SIZE/2 && my <= offsetY + py + HANDLE_HIT_SIZE/2;
+}
+function isOverMoveHandle(mx, my) {
+  return isOverHandle(mx, my, rect.x, rect.y);
+}
+function isOverResizeHandle(mx, my) {
+  return isOverHandle(mx, my, rect.x + rect.w, rect.y + rect.h);
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  const mx = e.offsetX, my = e.offsetY;
+  if (isOverResizeHandle(mx, my)) { resizing = true; return; }
+  if (isOverMoveHandle(mx, my)) {
+    dragging = true;
+    dragOffsetX = mx - (offsetX + rect.x);
+    dragOffsetY = my - (offsetY + rect.y);
+  }
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  const mx = e.offsetX, my = e.offsetY;
+  if (resizing) { resizeRect(mx, my); draw(); }
+  else if (dragging) {
+    rect.x = Math.min(activeSize - rect.w, Math.max(0, mx - offsetX - dragOffsetX));
+    rect.y = Math.min(activeSize - rect.h, Math.max(0, my - offsetY - dragOffsetY));
+    draw();
+  } else if (isOverResizeHandle(mx, my)) {
+    canvas.style.cursor = "nwse-resize";
+  } else if (isOverMoveHandle(mx, my)) {
+    canvas.style.cursor = "move";
+  } else {
+    canvas.style.cursor = "default";
+  }
+});
+
+canvas.addEventListener("mouseup", () => {
+  dragging = false;
+  resizing = false;
+  draw();
+});
+
+function resizeRect(mx, my) {
+  rect.w = Math.max(10, (mx - offsetX) - rect.x);
+  rect.h = Math.max(10, (my - offsetY) - rect.y);
+}
+
+// Next Level
+nextBtn.addEventListener("click", () => {
+  if (!readyForNext) return;
+  if (currentLevel < levels.length - 1) {
+    currentLevel++;
+    rect = {x: 40, y: 40, w: 80, h: 120};
+    target = {...levels[currentLevel]};
+    readyForNext = false;
+    nextBtn.style.display = "none";
+    draw();
+  } else {
+    alert("🎉 You finished all levels!");
+    nextBtn.style.display = "none";
+  }
+});
+
+draw();
+</script>
+
+</body>
+</html>

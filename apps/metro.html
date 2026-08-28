@@ -311,6 +311,43 @@ canvas {
     { name: "Los Angeles", lat: 34.05, lon: -118.24 },
   ];
 
+  const WORLD_MAP = [[
+    {x: 96, y: 143.5},
+    {x: 249, y: 151.5},
+    {x: 245, y: 208.5},
+    {x: 210, y: 277.5},
+    {x: 219, y: 306.5},
+    {x: 287, y: 302.5},
+    {x: 277, y: 391.5},
+    {x: 225, y: 443.5},
+    {x: 175, y: 309.5},
+    {x: 102, y: 236.5}],
+
+
+    [{x: 268, y: 123.5},
+    {x: 268, y: 196.5},
+    {x: 347, y: 193.5},
+    {x: 340, y: 246.5},
+    {x: 289, y: 257.5},
+    {x: 288, y: 310.5},
+    {x: 329, y: 313.5},
+    {x: 340, y: 377.5},
+    {x: 389, y: 374.5},
+    {x: 371, y: 255.5},
+    {x: 436, y: 301.5},
+    {x: 491, y: 306.5},
+    {x: 496, y: 236.5},
+    {x: 496, y: 184.5},
+    {x: 515, y: 150.5},
+    {x: 508, y: 111.5},
+    {x: 296, y: 106.5}],
+
+    [{x: 504, y: 356.5},
+    {x: 489, y: 394.5},
+    {x: 560, y: 392.5},
+    {x: 547, y: 352.5}]
+  ]
+
   const ROUTER_COLORS = [
     "#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6",
     "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#ff5722",
@@ -772,7 +809,6 @@ canvas {
   }
 
   function updateOutageSimulation(dt) {
-    console.log(OUTAGE_MODE);
     if (!OUTAGE_MODE || (links.length === 0 || !isNetworkConnected())) {
       outage.phase = "wait";
       outage.linkIndex = -1;
@@ -1181,6 +1217,23 @@ canvas {
     ctx.font = "11px Consolas, monospace";
     ctx.textAlign = "left";
     ctx.fillText("World map (equirectangular)", m + 8, m + 16);
+
+    // World Map
+    ctx.fillStyle = "#3c4652";
+    ctx.strokeStyle = "rgba(70,110,150,0.35)";
+    ctx.lineWidth = 2;
+    WORLD_MAP.forEach(continent => {
+      ctx.beginPath();
+      let start = continent[0];
+      ctx.moveTo(start.x, start.y);
+      for (let i = 1; i < continent.length; i++ ) {
+        let val = continent[i];
+        ctx.lineTo(val.x, val.y);
+      }
+      ctx.lineTo(start.x, start.y);
+      ctx.stroke();
+    })
+    
   }
 
   function draw() {
@@ -1340,6 +1393,7 @@ canvas {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+    console.log(mx, my);
     const ri = routerAt(mx, my);
 
     if (mode === "erase") {
@@ -1384,7 +1438,6 @@ canvas {
   });
   document.getElementById("hardModeToggle").addEventListener("change", () => {
     OUTAGE_MODE = document.getElementById("hardModeToggle").checked;
-    console.log(OUTAGE_MODE)
   });
 
   window.addEventListener("resize", () => {
